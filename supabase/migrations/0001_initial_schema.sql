@@ -154,8 +154,13 @@ create table if not exists public.reminder_dismissals (
 -- ============================================================
 -- Realtime  (so desktop clients can subscribe)
 -- ============================================================
-alter publication supabase_realtime add table public.reminders;
-alter publication supabase_realtime add table public.team_members;
+do $$ begin
+  alter publication supabase_realtime add table public.reminders;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table public.team_members;
+exception when duplicate_object then null; end $$;
 
 -- ============================================================
 -- Row-Level Security

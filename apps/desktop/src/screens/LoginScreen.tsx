@@ -16,26 +16,32 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="container">
-      <div className="card" style={{ maxWidth: 360, margin: "60px auto" }}>
-        <h1 style={{ marginTop: 0 }}>Office Reminder</h1>
-        <p className="muted" style={{ marginTop: -8 }}>Log in with your account.</p>
-        <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, marginTop: 16 }}>
+    <div className="login-wrap">
+      <form onSubmit={onSubmit} className="login-card">
+        <h1 className="h1">Welcome back</h1>
+        <p className="muted" style={{ marginTop: 4 }}>Log in to your Office Reminder account.</p>
+        <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
           <div>
             <label className="label">Email</label>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="input" type="email" required
+                   value={email} onChange={(e) => setEmail(e.target.value)}
+                   placeholder="you@company.com" />
           </div>
           <div>
             <label className="label">Password</label>
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input className="input" type="password" required
+                   value={password} onChange={(e) => setPassword(e.target.value)}
+                   placeholder="••••••••" />
           </div>
           {error && <div className="error">{error}</div>}
-          <button className="btn" disabled={loading}>{loading ? "…" : "Log in"}</button>
-          <p className="muted" style={{ marginTop: 0 }}>
-            New user? Create an account in the web dashboard, then log in here.
+          <button className="btn btn-primary" disabled={loading} style={{ marginTop: 4 }}>
+            {loading ? "Logging in…" : "Log in"}
+          </button>
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+            New user? Sign up in the web dashboard, then log in here.
           </p>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 }

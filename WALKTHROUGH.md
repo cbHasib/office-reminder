@@ -70,6 +70,16 @@ You should see a success message at the bottom — something like *"Success. No 
 
 **Check it worked:** click the **Table Editor** (database icon) in the sidebar. You should see tables: `users`, `teams`, `team_members`, `reminders`, `user_settings`, `reminder_dismissals`. If they're there, the database is done.
 
+### Step 3.1 — Run migration 0002 (new settings columns)
+
+This adds the per-user theme, overlay position, and sound choice.
+
+1. Back to the SQL Editor → **+ New query**.
+2. Open `supabase/migrations/0002_user_settings_extras.sql`, copy its contents in.
+3. Click **Run**.
+
+If you've already run this once, the `if not exists` clauses make it safe to run again.
+
 ### Step 3a — Turn off email confirmation (for development)
 
 So you can sign up without setting up an email server:
@@ -138,6 +148,8 @@ pnpm install
 ```
 
 This installs the Node packages for the web app, the desktop app, and the shared types — all in one go. Expect ~3 minutes the first time. You'll see a bunch of progress bars.
+
+> If you've installed before, after upgrading Next.js or any major dep, run `pnpm install` again to refresh the lockfile. If something feels stuck, `rm -rf node_modules **/node_modules && pnpm install` does a clean reinstall.
 
 Ignore any "peer dependency" warnings — they're cosmetic.
 

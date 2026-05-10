@@ -1,11 +1,17 @@
 // Shared types used by both apps/web and apps/desktop.
-// Mirrors the Supabase schema in supabase/migrations/0001_initial_schema.sql.
+// Mirrors the Supabase schema in supabase/migrations/.
 
 export type UUID = string;
 export type Timestamp = string; // ISO-8601
 
 export type TeamRole = "admin" | "member";
 export type ReminderAudience = "all" | "specific";
+export type Theme = "system" | "light" | "dark";
+export type OverlayPosition =
+  | "top-right" | "top-left"
+  | "bottom-right" | "bottom-left"
+  | "top-center" | "bottom-center";
+export type SoundName = "chime" | "bell" | "ding" | "soft" | "alert";
 
 export interface User {
   id: UUID;
@@ -17,7 +23,7 @@ export interface User {
 export interface Team {
   id: UUID;
   name: string;
-  join_code: string; // 6-char base32
+  join_code: string;
   created_by: UUID;
   created_at: Timestamp;
 }
@@ -34,11 +40,11 @@ export interface Reminder {
   team_id: UUID;
   title: string;
   description: string;
-  scheduled_at: Timestamp;          // first/next occurrence
-  rrule: string | null;             // RFC 5545 recurrence string, null = one-off
-  advance_minutes: number;          // default warning lead time
+  scheduled_at: Timestamp;
+  rrule: string | null;
+  advance_minutes: number;
   audience: ReminderAudience;
-  target_user_ids: UUID[];          // populated when audience = 'specific'
+  target_user_ids: UUID[];
   created_by: UUID;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -46,10 +52,13 @@ export interface Reminder {
 
 export interface UserSettings {
   user_id: UUID;
-  sound_enabled: boolean;          // default false
-  dismissible: boolean;            // default false (overlay can't be closed during countdown)
+  sound_enabled: boolean;
+  dismissible: boolean;
   advance_minutes_override: number | null;
   muted_reminder_ids: UUID[];
+  theme: Theme;
+  overlay_position: OverlayPosition;
+  sound_name: SoundName;
 }
 
 export interface ReminderDismissal {
@@ -59,16 +68,35 @@ export interface ReminderDismissal {
   dismissed_at: Timestamp | null;
 }
 
-// Sensible defaults — match the database defaults so we never disagree.
 export const DEFAULT_USER_SETTINGS: Omit<UserSettings, "user_id"> = {
   sound_enabled: false,
   dismissible: false,
   advance_minutes_override: null,
   muted_reminder_ids: [],
+  theme: "system",
+  overlay_position: "top-right",
+  sound_name: "chime",
 };
 
 export const DEFAULT_ADVANCE_MINUTES = 5;
 export const OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES = 5;
+
+export const OVERLAY_POSITION_LABELS: Record<OverlayPosition, string> = {
+  "top-right":     "Top right",
+  "top-left":      "Top left",
+  "top-center":    "Top center",
+  "bottom-right":  "Bottom right",
+  "bottom-left":   "Bottom left",
+  "bottom-center": "Bottom center",
+};
+
+export const SOUND_LABELS: Record<SoundName, string> = {
+  chime: "Chime — soft two-note",
+  bell:  "Bell — clear single tone",
+  ding:  "Ding — short and quick",
+  soft:  "Soft — gentle pad",
+  alert: "Alert — attention-grabbing",
+};
 
 /** Generate a join code: 6 chars, Crockford base32 (no I/L/O/U). */
 export function generateJoinCode(): string {

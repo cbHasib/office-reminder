@@ -6,36 +6,47 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
+use tauri_plugin_autostart::MacosLauncher;
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
-            // Build the system-tray menu
-            let show_item = MenuItem::with_id(app, "show", "Show window", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "Quit Office Reminder", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+            // Tray menu: show, settings, quit.
+            let show_item    = MenuItem::with_id(app, "show",     "Show window",     true, None::<&str>)?;
+            let settings_item = MenuItem::with_id(app, "settings", "Open settings",   true, None::<&str>)?;
+            let quit_item    = MenuItem::with_id(app, "quit",     "Quit Office Reminder", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_item, &settings_item, &quit_item])?;
 
             let _tray = TrayIconBuilder::new()
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
+                    "show" | "settings" => {
                         if let Some(win) = app.get_webview_window("main") {
                             let _ = win.show();
+                            let _ = win.unminimize();
                             let _ = win.set_focus();
                         }
                     }
-                    "quit" => {
-                        app.exit(0);
-                    }
+                    "quit" => app.exit(0),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up, ..
+                    } = event
+                    {
                         if let Some(win) = tray.app_handle().get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
+                            // Toggle visibility on left-click
+                            let visible = win.is_visible().unwrap_or(false);
+                            if visible { let _ = win.hide(); }
+                            else { let _ = win.show(); let _ = win.set_focus(); }
                         }
                     }
                 })
@@ -43,7 +54,7 @@ fn main() {
 
             Ok(())
         })
-        // Hide window on close (instead of quitting) so the tray icon remains
+        // Hide window on close instead of quitting; tray stays alive.
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {

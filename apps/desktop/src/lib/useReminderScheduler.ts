@@ -9,11 +9,6 @@ interface Params {
   userId: string;
 }
 
-/**
- * Ticks every 15s. For each reminder whose fire window contains "now",
- * spawns the countdown overlay window (unless it's already open for that
- * occurrence).
- */
 export function useReminderScheduler({ reminders, settings, userId }: Params) {
   const firedKeys = useRef<Set<string>>(new Set());
 
@@ -21,7 +16,7 @@ export function useReminderScheduler({ reminders, settings, userId }: Params) {
     let cancelled = false;
 
     function tick() {
-      if (cancelled) return;
+      if (cancelled || !settings) return;
       const now = new Date();
       for (const r of reminders) {
         if (isSilencedForUser(r, settings, userId)) continue;
@@ -37,14 +32,20 @@ export function useReminderScheduler({ reminders, settings, userId }: Params) {
           firedKeys.current.add(key);
 
           if (!isOverlayOpen()) {
-            openOverlay({
-              reminderId: r.id,
-              title: r.title,
-              description: r.description,
-              eventAtISO: next.toISOString(),
-              dismissibleDuringCountdown: settings?.dismissible ?? false,
-              soundEnabled: settings?.sound_enabled ?? false,
-            }).catch((err) => console.error("Failed to open overlay:", err));
+            openOverlay(
+              {
+                reminderId: r.id,
+                title: r.title,
+                description: r.description,
+                eventAtISO: next.toISOString(),
+                leadMinutes: lead,
+                dismissibleDuringCountdown: settings.dismissible,
+                soundEnabled: settings.sound_enabled,
+                soundName: settings.sound_name,
+                theme: settings.theme,
+              },
+              settings.overlay_position,
+            ).catch((err) => console.error("Failed to open overlay:", err));
           }
         }
       }

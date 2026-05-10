@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
-import LogoutButton from "@/components/LogoutButton";
+import Sidebar from "@/components/Sidebar";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -15,21 +14,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .single();
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-ink-300 bg-white">
-        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link href="/dashboard/teams" className="font-semibold text-ink-900">
-            Office Reminder
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/dashboard/teams" className="text-ink-700 hover:text-ink-900">Teams</Link>
-            <Link href="/dashboard/settings" className="text-ink-700 hover:text-ink-900">Settings</Link>
-            <span className="text-ink-500 hidden sm:inline">{profile?.display_name ?? profile?.email}</span>
-            <LogoutButton />
-          </nav>
-        </div>
-      </header>
-      <main className="max-w-5xl w-full mx-auto px-6 py-8 flex-1">{children}</main>
+    <div className="min-h-screen bg-bg flex">
+      <Sidebar
+        displayName={profile?.display_name ?? null}
+        email={profile?.email ?? user.email ?? ""}
+      />
+      <main className="flex-1 px-6 py-8 md:px-10 md:py-10 overflow-x-hidden">
+        <div className="max-w-4xl mx-auto">{children}</div>
+      </main>
     </div>
   );
 }

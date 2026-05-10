@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capabilities granted to the main window and the overlay window.",
+  "description": "Capabilities for the main window and overlay window.",
   "windows": ["main", "reminder-overlay"],
   "permissions": [
     "core:default",
@@ -9,9 +9,16 @@
     "core:window:allow-show",
     "core:window:allow-hide",
     "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
+    "core:window:allow-current-monitor",
+    "core:window:allow-set-position",
     "core:webview:allow-create-webview-window",
     "core:webview:allow-webview-close",
     "notification:default",
-    "notification:allow-notify"
+    "notification:allow-notify",
+    "autostart:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }

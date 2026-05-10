@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { closeMyself, type OverlayPayload } from "@/lib/overlayController";
 import { OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES } from "@office-reminder/shared";
+import { playSound } from "@/lib/sounds";
 
 function readPayload(): OverlayPayload | null {
   try {
@@ -9,74 +10,59 @@ function readPayload(): OverlayPayload | null {
   } catch { return null; }
 }
 
-/** Linear interpolation between two hex colors, t in [0,1]. */
-function mix(a: [number, number, number], b: [number, number, number], t: number): string {
-  const c = a.map((ch, i) => Math.round(ch + (b[i] - ch) * t));
-  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
-}
-
-const SLATE  : [number, number, number] = [31, 41, 55];   // #1f2937
-const AMBER  : [number, number, number] = [217, 119, 6];  // #d97706
-const RED    : [number, number, number] = [220, 38, 38];  // #dc2626
-
 export default function OverlayWindow() {
   const payload = useMemo(readPayload, []);
+  if (!payload) {
+    return <div className="overlay-root"><p className="overlay-title">Missing payload</p></div>;
+  }
+  return <OverlayContent payload={payload} />;
+}
+
+function mix(a: [number, number, number], b: [number, number, number], t: number): string {
+  const c = a.map((ch, i) => Math.round(ch + (b[i] - ch) * Math.max(0, Math.min(1, t))));
+  return `rgb(${c[0]} ${c[1]} ${c[2]})`;
+}
+const SLATE: [number, number, number] = [148, 163, 184];
+const AMBER: [number, number, number] = [251, 191,  36];
+const RED:   [number, number, number] = [248, 113, 113];
+
+const RADIUS = 32;
+const CIRC = 2 * Math.PI * RADIUS;
+
+function OverlayContent({ payload }: { payload: OverlayPayload }) {
   const [now, setNow] = useState(() => new Date());
+  const [zeroSoundPlayed, setZeroSoundPlayed] = useState(false);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, []);
 
-  // Optional chime
+  // Sound on open
   useEffect(() => {
-    if (!payload?.soundEnabled) return;
-    playChime();
-  }, [payload]);
+    if (payload.soundEnabled) playSound(payload.soundName);
+  }, [payload.soundEnabled, payload.soundName]);
 
-  if (!payload) {
-    return <div className="overlay-root" style={{ background: mix(SLATE, SLATE, 0) }}>
-      <p className="overlay-title">Missing reminder payload</p>
-    </div>;
-  }
+  const eventAt = new Date(payload.eventAtISO).getTime();
+  const leadMs = payload.leadMinutes * 60_000;
+  const startedAt = eventAt - leadMs;
+  const elapsed = now.getTime() - startedAt;
+  const remaining = eventAt - now.getTime();
+  const past = remaining <= 0;
+  const progress = Math.max(0, Math.min(1, elapsed / leadMs));
 
-  const eventAt = new Date(payload.eventAtISO);
-  const diffMs = eventAt.getTime() - now.getTime();
-  const past = diffMs <= 0;
+  // Sound at zero (once)
+  useEffect(() => {
+    if (past && payload.soundEnabled && !zeroSoundPlayed) {
+      playSound(payload.soundName);
+      setZeroSoundPlayed(true);
+    }
+  }, [past, payload.soundEnabled, payload.soundName, zeroSoundPlayed]);
 
-  // Color progress: from "lead time" → 0, interpolate slate→amber→red
-  // We don't know the original lead from inside the overlay, but the
-  // overlay was opened exactly when (eventAt - lead) hit; so progress
-  // since open is (timeOpen / leadOriginal). We approximate using a
-  // simple rule: the LAST 60 seconds are full red; before that we ramp.
-  let bg: string;
-  if (past) {
-    // Hold red, then start fading toward neutral as auto-close approaches.
-    const sincePastMs = -diffMs;
-    const fadeWindow = OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES * 60_000;
-    const t = Math.min(1, sincePastMs / fadeWindow);
-    bg = mix(RED, SLATE, t * 0.4); // gentle fade
-  } else if (diffMs <= 60_000) {
-    bg = `rgb(${RED[0]}, ${RED[1]}, ${RED[2]})`;
-  } else if (diffMs <= 5 * 60_000) {
-    // 5min → 1min: amber → red
-    const t = 1 - ((diffMs - 60_000) / (4 * 60_000));
-    bg = mix(AMBER, RED, t);
-  } else {
-    // before 5min: slate → amber, capped
-    const t = Math.min(1, (15 * 60_000 - diffMs) / (10 * 60_000));
-    bg = mix(SLATE, AMBER, Math.max(0, t));
-  }
-
-  // Dismissibility: hidden during countdown if user setting says so
-  const showDismiss = past || payload.dismissibleDuringCountdown;
-
-  // Auto close after N minutes past event. Only depend on `past` so the
-  // timeout is set up once when the event fires, not re-created every tick.
+  // Auto-close N minutes after the event
   useEffect(() => {
     if (!past) return;
-    const eventMs = eventAt.getTime();
-    const closeAt = eventMs + OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES * 60_000;
+    const closeAt = eventAt + OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES * 60_000;
     const closeIn = closeAt - Date.now();
     if (closeIn <= 0) { closeMyself(); return; }
     const id = window.setTimeout(() => closeMyself(), closeIn);
@@ -84,43 +70,65 @@ export default function OverlayWindow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [past]);
 
+  let ringColor: string;
+  if (past) ringColor = `rgb(${RED.join(" ")})`;
+  else if (progress < 0.5) ringColor = mix(SLATE, AMBER, progress / 0.5);
+  else                     ringColor = mix(AMBER, RED, (progress - 0.5) / 0.5);
+
+  const showDismiss = past || payload.dismissibleDuringCountdown;
+
   return (
-    <div className="overlay-root" style={{ background: bg }}>
-      <div>
+    <div className="overlay-root">
+      <div className="overlay-text">
         <p className="overlay-title">{payload.title}</p>
         {payload.description && <p className="overlay-desc">{payload.description}</p>}
+        <p className="overlay-meta">
+          <span className="dot" />
+          {past ? "Now" : `${eventLocalTime(eventAt)} · ${humanTime(remaining)}`}
+        </p>
       </div>
-      <div className="overlay-bottom">
-        <div className="overlay-time">{past ? "Now" : formatRemaining(diffMs)}</div>
-        {showDismiss && (
-          <button className="overlay-dismiss" onClick={closeMyself}>
-            Dismiss
-          </button>
-        )}
+
+      <div className="overlay-ring">
+        <svg viewBox="0 0 80 80">
+          <circle className="track" cx="40" cy="40" r={RADIUS}
+                  fill="none" strokeWidth="6" />
+          <circle className="progress" cx="40" cy="40" r={RADIUS}
+                  fill="none" strokeWidth="6"
+                  stroke={ringColor}
+                  strokeDasharray={CIRC}
+                  strokeDashoffset={past ? 0 : CIRC * (1 - progress)} />
+        </svg>
+        <div className="label text-white">{past ? "Now" : ringText(remaining)}</div>
       </div>
+
+      {showDismiss && (
+        <button className="overlay-dismiss" onClick={closeMyself} title="Dismiss">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M2 2l6 6M8 2l-6 6" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
 
-function formatRemaining(ms: number): string {
+function ringText(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(total / 60);
   const s = total % 60;
+  if (m >= 10) return `${m}m`;
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
-
-function playChime() {
-  // A short tone via the Web Audio API — no asset file required
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.frequency.value = 660;
-    o.connect(g); g.connect(ctx.destination);
-    g.gain.setValueAtTime(0, ctx.currentTime);
-    g.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.04);
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
-    o.start();
-    o.stop(ctx.currentTime + 0.7);
-  } catch {}
+function humanTime(ms: number): string {
+  const m = Math.max(0, Math.floor(ms / 60_000));
+  if (m === 0) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    return `${s}s left`;
+  }
+  if (m < 60) return `${m} min left`;
+  const h = Math.floor(m / 60);
+  return `${h}h left`;
+}
+function eventLocalTime(eventAt: number): string {
+  return new Date(eventAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }

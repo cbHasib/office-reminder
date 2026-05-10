@@ -14,11 +14,16 @@
       {
         "label": "main",
         "title": "Office Reminder",
-        "width": 520,
-        "height": 600,
+        "width": 760,
+        "height": 560,
+        "minWidth": 640,
+        "minHeight": 480,
         "resizable": true,
         "fullscreen": false,
-        "visible": true
+        "visible": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 16, "y": 18 }
       }
     ],
     "trayIcon": {
@@ -41,5 +46,5 @@
       "icons/icon.ico"
     ]
   },
-  "plugins": { }
+  "plugins": {}
 }

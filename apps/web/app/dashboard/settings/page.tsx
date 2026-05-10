@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import SettingsForm from "@/components/SettingsForm";
+import { DEFAULT_USER_SETTINGS } from "@office-reminder/shared";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -11,14 +12,18 @@ export default async function SettingsPage() {
     .eq("user_id", user!.id)
     .single();
 
+  // Always pass a fully-populated settings object (defaults if row missing)
+  const initial = settings ?? { user_id: user!.id, ...DEFAULT_USER_SETTINGS };
+
   return (
-    <div className="max-w-xl">
-      <h1 className="text-2xl font-semibold mb-6">Your notification settings</h1>
-      <p className="text-sm text-ink-500 mb-6">
-        These settings apply to your desktop client. Defaults follow our policy:
-        <span className="font-medium"> sound off, overlay non-dismissible.</span>
-      </p>
-      <SettingsForm initial={settings} />
+    <div className="space-y-8">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight">Notification settings</h1>
+        <p className="text-sm text-subtle mt-1">
+          These apply across all your devices. The desktop app picks them up in real time.
+        </p>
+      </header>
+      <SettingsForm initial={initial} />
     </div>
   );
 }

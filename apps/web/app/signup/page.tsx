@@ -19,41 +19,43 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true); setError(null); setInfo(null);
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
+      email, password,
       options: { data: { display_name: displayName } },
     });
     setLoading(false);
     if (error) { setError(error.message); return; }
-    setInfo("Check your inbox to confirm your email, then come back and log in.");
-    setTimeout(() => router.push("/login"), 2500);
+    setInfo("Account created. You can log in now.");
+    setTimeout(() => router.push("/login"), 1200);
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
-      <form onSubmit={onSubmit} className="card w-full max-w-sm space-y-4">
-        <h1 className="text-2xl font-semibold">Create an account</h1>
+    <main className="min-h-screen flex items-center justify-center px-6 bg-bg">
+      <form onSubmit={onSubmit} className="card card-pad w-full max-w-sm space-y-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
+          <p className="text-sm text-subtle mt-1">Get started in under a minute.</p>
+        </div>
         <div>
           <label className="label">Display name</label>
           <input className="input" required value={displayName}
-                 onChange={(e) => setDisplayName(e.target.value)} />
+                 onChange={(e) => setDisplayName(e.target.value)} placeholder="Hasib" />
         </div>
         <div>
           <label className="label">Email</label>
           <input className="input" type="email" required value={email}
-                 onChange={(e) => setEmail(e.target.value)} />
+                 onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
         </div>
         <div>
           <label className="label">Password</label>
           <input className="input" type="password" required minLength={8} value={password}
-                 onChange={(e) => setPassword(e.target.value)} />
+                 onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {info && <p className="text-sm text-emerald-600">{info}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
+        {info && <p className="text-sm text-success">{info}</p>}
         <button className="btn-primary w-full" disabled={loading}>
           {loading ? "Creating…" : "Create account"}
         </button>
-        <p className="text-sm text-ink-500">
+        <p className="text-sm text-subtle">
           Already have an account? <Link className="text-brand hover:underline" href="/login">Log in</Link>
         </p>
       </form>
