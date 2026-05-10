@@ -1,18 +1,20 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 
-export default async function MembersPage({ params }: { params: { teamId: string } }) {
+export default async function MembersPage({ params }: { params: Promise<{
+    teamId: string;
+  }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const { data: team } = await supabase.from("teams")
-    .select("id, name, join_code").eq("id", params.teamId).single();
+    .select("id, name, join_code").eq("id", (await params).teamId).single();
   if (!team) notFound();
 
   const { data: members } = await supabase
     .from("team_members")
     .select("role, joined_at, user:users(id, display_name, email)")
-    .eq("team_id", params.teamId);
+    .eq("team_id", (await params).teamId);
 
   const me = members?.find((m: any) => m.user?.id === user!.id);
   const isAdmin = me?.role === "admin";

@@ -3,21 +3,23 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import RemindersTable from "@/components/RemindersTable";
 
-export default async function TeamPage({ params }: { params: { teamId: string } }) {
+export default async function TeamPage({ params }: { params: Promise<{
+    teamId: string;
+  }> }) {
   const supabase =  await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const { data: team } = await supabase
     .from("teams")
     .select("id, name, join_code")
-    .eq("id", params.teamId)
+    .eq("id", (await params).teamId)
     .single();
   if (!team) notFound();
 
   const { data: membership } = await supabase
     .from("team_members")
     .select("role")
-    .eq("team_id", params.teamId)
+    .eq("team_id", (await params).teamId)
     .eq("user_id", user!.id)
     .single();
   const isAdmin = membership?.role === "admin";
@@ -25,7 +27,7 @@ export default async function TeamPage({ params }: { params: { teamId: string } 
   const { data: reminders } = await supabase
     .from("reminders")
     .select("*")
-    .eq("team_id", params.teamId)
+    .eq("team_id", (await params).teamId)
     .order("scheduled_at", { ascending: true });
 
   return (
