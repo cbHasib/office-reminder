@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+target/
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+.pnpm-store/
+.vercel/
+src-tauri/target/
+src-tauri/Cargo.lock

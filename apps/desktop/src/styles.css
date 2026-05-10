@@ -1,0 +1,52 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+}
+.container { max-width: 480px; margin: 0 auto; padding: 24px; }
+.card { background: white; border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+input, button {
+  font-family: inherit; font-size: 14px;
+}
+input[type="text"], input[type="email"], input[type="password"] {
+  width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+  outline: none;
+}
+input:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+.btn { display: inline-flex; align-items: center; justify-content: center;
+       padding: 8px 14px; border-radius: 8px; border: 0; cursor: pointer;
+       background: #4f46e5; color: white; font-weight: 500; }
+.btn:hover { background: #4338ca; }
+.btn-secondary { background: white; color: #1e293b; border: 1px solid #cbd5e1; }
+.btn-secondary:hover { background: #f1f5f9; }
+.label { display:block; font-size: 13px; font-weight: 500; color: #334155; margin-bottom: 4px; }
+.muted { color: #64748b; font-size: 13px; }
+.error { color: #dc2626; font-size: 13px; }
+
+/* ---------- Overlay window ---------- */
+.overlay-root {
+  width: 100vw; height: 100vh; padding: 14px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  color: white;
+  border-radius: 12px;
+  font-feature-settings: "tnum";
+  user-select: none;
+  /* background is set inline with a transitioning gradient */
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  -webkit-app-region: drag;
+}
+.overlay-title { font-size: 14px; font-weight: 600; margin: 0; }
+.overlay-desc  { font-size: 12px; opacity: 0.85; margin: 2px 0 0; }
+.overlay-time  { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; }
+.overlay-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.overlay-dismiss {
+  -webkit-app-region: no-drag;
+  background: rgba(255,255,255,0.18); color: white; border: 0;
+  padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+}
+.overlay-dismiss:hover { background: rgba(255,255,255,0.28); }

@@ -1,0 +1,17 @@
+{
+  "name": "office-reminder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant cross-platform desktop reminder system for offices",
+  "scripts": {
+    "web:dev": "pnpm --filter web dev",
+    "web:build": "pnpm --filter web build",
+    "desktop:dev": "pnpm --filter desktop tauri dev",
+    "desktop:build": "pnpm --filter desktop tauri build",
+    "shared:build": "pnpm --filter @office-reminder/shared build"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
