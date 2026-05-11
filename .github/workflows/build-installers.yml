@@ -1,27 +1,22 @@
 name: Build & publish installers
 
 # Triggers:
-#   - push a tag like v0.1.0  → builds all 3 OSes + auto-publishes a public release
-#   - workflow_dispatch       → manual run, optionally tagged
-#   - push to main            → builds (without releasing) ONLY when desktop-relevant
-#                               files changed. Web-only or docs-only commits are skipped.
+#   - push a tag like v0.1.0  → builds all 3 OSes + auto-publishes a public release.
+#   - workflow_dispatch       → manual run from the Actions UI. Optionally tagged.
+#
+# We deliberately DON'T build on every push to main — that doubled the work when
+# `git push origin main --tags` fired both a branch push AND a tag push. To sanity-
+# check a build without releasing, use the manual dispatch with the tag input empty.
 #
 # Publishes the release to RELEASES_REPO (a public mirror) so that downloads
 # work without GitHub authentication, while this source repo stays private.
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-    paths:
-      - "apps/desktop/**"
-      - "packages/shared/**"
-      - ".github/workflows/build-installers.yml"
-      - "pnpm-lock.yaml"
-      - "package.json"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to release as (e.g. v0.1.0). Leave empty for build-only."
+        description: "Tag to release as (e.g. v0.1.0). Leave empty for build-only sanity check."
         required: false
         default: ""
 
