@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import CreateTeamForm from "@/components/CreateTeamForm";
 import JoinTeamForm from "@/components/JoinTeamForm";
+import PendingRequestsList from "@/components/PendingRequestsList";
 
 export default async function TeamsPage() {
   const supabase = await createClient();
@@ -13,6 +14,14 @@ export default async function TeamsPage() {
     .eq("user_id", user!.id);
 
   const teams = (memberships ?? []).map((m: any) => ({ ...m.team, role: m.role }));
+
+  // Pending join requests for current user (their own requests)
+  const { data: myRequests } = await supabase
+    .from("join_requests")
+    .select("id, status, created_at, team:teams(id, name, join_code)")
+    .eq("user_id", user!.id)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
 
   return (
     <div className="space-y-10">
@@ -45,6 +54,13 @@ export default async function TeamsPage() {
           </ul>
         )}
       </section>
+
+      {(myRequests?.length ?? 0) > 0 && (
+        <section>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-subtle mb-3">Pending requests</h2>
+          <PendingRequestsList initial={myRequests ?? []} />
+        </section>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="card card-pad">

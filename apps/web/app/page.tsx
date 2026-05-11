@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DEVELOPER, SOURCE_REPO_URL } from "@office-reminder/shared";
 
 export default function MarketingPage() {
   return (
@@ -31,6 +32,19 @@ export default function MarketingPage() {
           Free for any team. Sign up · create a team · share a 6-character code.
         </p>
       </div>
+
+      <footer className="absolute bottom-6 inset-x-0 text-center text-xs text-subtle">
+        Built by{" "}
+        <a href={DEVELOPER.website} target="_blank" rel="noreferrer"
+           className="text-brand hover:underline">
+          {DEVELOPER.name}
+        </a>{" "}
+        ·{" "}
+        <a href={SOURCE_REPO_URL} target="_blank" rel="noreferrer"
+           className="hover:underline">
+          Source
+        </a>
+      </footer>
     </main>
   );
 }

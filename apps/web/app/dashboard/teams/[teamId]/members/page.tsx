@@ -1,61 +1,72 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
+import MembersList from "@/components/MembersList";
+import JoinRequestsPanel from "@/components/JoinRequestsPanel";
 
-export default async function MembersPage({ params }: { params: Promise<{
-    teamId: string;
-  }> }) {
+export default async function MembersPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const { teamId } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: team } = await supabase.from("teams")
-    .select("id, name, join_code").eq("id", (await params).teamId).single();
+  const { data: team } = await supabase
+    .from("teams")
+    .select("id, name, join_code, require_approval, created_by")
+    .eq("id", teamId)
+    .single();
   if (!team) notFound();
 
   const { data: members } = await supabase
     .from("team_members")
     .select("role, joined_at, user:users(id, display_name, email)")
-    .eq("team_id", (await params).teamId);
+    .eq("team_id", teamId);
 
-  const me = members?.find((m: any) => m.user?.id === user!.id);
+  const me = (members ?? []).find((m: any) => m.user?.id === user!.id);
   const isAdmin = me?.role === "admin";
 
+  // Admins see pending requests; everyone else's RLS strips this anyway.
+  let requests: any[] = [];
+  if (isAdmin) {
+    const { data } = await supabase
+      .from("join_requests")
+      .select("id, status, created_at, message, user:users(id, display_name, email)")
+      .eq("team_id", teamId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+    requests = data ?? [];
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">{team.name} — Members</h1>
-        <p className="text-sm text-ink-500 mt-1">
-          Share the join code <span className="font-mono">{team.join_code}</span> with anyone you want to add.
+    <div className="space-y-8">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight">{team.name} — Members</h1>
+        <p className="text-sm text-subtle mt-1">
+          Share the join code <span className="font-mono kbd">{team.join_code}</span> to invite people.
         </p>
-      </div>
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-ink-100 text-ink-700">
-            <tr>
-              <th className="text-left px-4 py-2">Name</th>
-              <th className="text-left px-4 py-2">Email</th>
-              <th className="text-left px-4 py-2">Role</th>
-              <th className="text-left px-4 py-2">Joined</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(members ?? []).map((m: any) => (
-              <tr key={m.user.id} className="border-t border-ink-300/60">
-                <td className="px-4 py-2 text-ink-900">{m.user.display_name ?? "—"}</td>
-                <td className="px-4 py-2 text-ink-700">{m.user.email}</td>
-                <td className="px-4 py-2 text-ink-700 capitalize">{m.role}</td>
-                <td className="px-4 py-2 text-ink-500">
-                  {new Date(m.joined_at).toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {!isAdmin && (
-        <p className="text-xs text-ink-500">
-          Only admins can change member roles. Ask a team admin if you need elevated permissions.
-        </p>
+      </header>
+
+      {isAdmin && (
+        <section>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-subtle mb-3">
+            Pending requests {requests.length > 0 && <span className="ml-1 text-fg">({requests.length})</span>}
+          </h2>
+          <JoinRequestsPanel
+            teamId={team.id}
+            initial={requests}
+            requireApproval={team.require_approval}
+          />
+        </section>
       )}
+
+      <section>
+        <h2 className="text-sm font-medium uppercase tracking-wide text-subtle mb-3">Members</h2>
+        <MembersList
+          teamId={team.id}
+          createdBy={team.created_by}
+          currentUserId={user!.id}
+          isAdmin={isAdmin}
+          initial={members ?? []}
+        />
+      </section>
     </div>
   );
 }

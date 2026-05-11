@@ -73,17 +73,18 @@ input, button, select, textarea { font: inherit; color: inherit; }
 }
 /* A draggable strip across the FULL width of the window so the user can pick
    it up from anywhere along the top — on macOS with titleBarStyle: Overlay,
-   this is the only way to move the window. */
+   this is the only way to move the window. We make it 32px tall so it
+   always covers the macOS traffic-light row. */
 .titlebar-drag {
   -webkit-app-region: drag;
-  position: absolute;
+  position: fixed;
   top: 0; left: 0; right: 0;
-  height: 28px;
-  z-index: 100;
-  pointer-events: auto;
+  height: 32px;
+  z-index: 1000;
+  background: transparent;
+  cursor: default;
 }
-/* But buttons/links should still be clickable when they happen to live
-   under the drag strip — sidebar items get an explicit no-drag region. */
+/* But buttons/links anywhere else in the app should still be clickable. */
 .nav-item, .btn, button, a, input, select, textarea {
   -webkit-app-region: no-drag;
 }

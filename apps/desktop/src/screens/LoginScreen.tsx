@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { externalLink } from "@/lib/openExternal";
+import { WEB_SIGNUP_URL, WEB_LOGIN_URL } from "@office-reminder/shared";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -38,7 +40,17 @@ export default function LoginScreen() {
             {loading ? "Logging in…" : "Log in"}
           </button>
           <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-            New user? Sign up in the web dashboard, then log in here.
+            New user?{" "}
+            <a className="text-brand" {...externalLink(WEB_SIGNUP_URL)} style={{ textDecoration: "underline" }}>
+              Create an account
+            </a>{" "}
+            then log in here.
+          </p>
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+            Forgot your password?{" "}
+            <a className="text-brand" {...externalLink(WEB_LOGIN_URL)} style={{ textDecoration: "underline" }}>
+              Reset on the web
+            </a>
           </p>
         </div>
       </form>

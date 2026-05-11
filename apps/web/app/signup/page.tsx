@@ -12,20 +12,29 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true); setError(null); setInfo(null);
-    const { error } = await supabase.auth.signUp({
+    setLoading(true); setError(null);
+    const { data, error } = await supabase.auth.signUp({
       email, password,
-      options: { data: { display_name: displayName } },
+      options: {
+        data: { display_name: displayName },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard/teams`,
+      },
     });
     setLoading(false);
     if (error) { setError(error.message); return; }
-    setInfo("Account created. You can log in now.");
-    setTimeout(() => router.push("/login"), 1200);
+
+    // If email confirmation is required, Supabase returns a user with
+    // identities array but no session. Send them to the "check inbox" page.
+    if (data.user && !data.session) {
+      router.push(`/signup/verify?email=${encodeURIComponent(email)}`);
+    } else {
+      // Auto-confirm flow (dev mode) — straight to login.
+      router.push("/login");
+    }
   }
 
   return (
@@ -51,7 +60,6 @@ export default function SignupPage() {
                  onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
         </div>
         {error && <p className="text-sm text-danger">{error}</p>}
-        {info && <p className="text-sm text-success">{info}</p>}
         <button className="btn-primary w-full" disabled={loading}>
           {loading ? "Creating…" : "Create account"}
         </button>

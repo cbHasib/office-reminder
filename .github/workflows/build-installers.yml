@@ -129,7 +129,9 @@ jobs:
 
             ### macOS
             - Apple Silicon (M1/M2/M3/M4): `*_aarch64.dmg`
-            - First launch: right-click the app → Open → Open (unsigned build).
+            - First launch: macOS may say **"unidentified developer"**. Right-click the app → **Open** → **Open**.
+            - If you instead see **"is damaged and can't be opened"**, run once:
+              `xattr -cr "/Applications/Office Reminder.app"`
 
             ### Windows
             - `*_x64-setup.exe` or `*_x64_en-US.msi`

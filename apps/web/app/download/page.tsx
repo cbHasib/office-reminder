@@ -132,20 +132,29 @@ export default async function DownloadPage() {
               })}
             </div>
 
-            <div className="mt-10 card card-pad text-sm text-subtle space-y-2">
-              <p>
-                <strong className="text-fg">macOS</strong> may say
-                "Office Reminder is damaged" on first open — that's the unsigned-binary warning.
-                Right-click the app → Open → Open.
-              </p>
-              <p>
-                <strong className="text-fg">Windows</strong> SmartScreen may say
-                "Unknown publisher". Click <em>More info</em> → <em>Run anyway</em>.
-              </p>
-              <p>
-                <strong className="text-fg">Ubuntu</strong>: <code className="kbd">sudo dpkg -i office-reminder_*.deb</code>.
-                Then launch from the apps grid.
-              </p>
+            <div className="mt-10 card card-pad text-sm text-subtle space-y-3">
+              <div>
+                <strong className="text-fg">macOS</strong> · After installing, the first
+                launch may show "Office Reminder cannot be opened because the developer
+                cannot be verified" — right-click the app in Applications →{" "}
+                <em>Open</em> → <em>Open</em>.
+                <br />
+                If you instead see <em>"is damaged and can't be opened"</em>, open
+                Terminal and run once:
+                <code className="block mt-2 p-2 kbd whitespace-pre">
+                  xattr -cr "/Applications/Office Reminder.app"
+                </code>
+              </div>
+              <div>
+                <strong className="text-fg">Windows</strong> · SmartScreen may show
+                "Unknown publisher" on first install. Click <em>More info</em> →{" "}
+                <em>Run anyway</em>.
+              </div>
+              <div>
+                <strong className="text-fg">Ubuntu / Debian</strong> ·{" "}
+                <code className="kbd">sudo dpkg -i office-reminder_*.deb</code> then launch
+                from the apps grid. Or use the <em>.AppImage</em>: <code className="kbd">chmod +x</code> then double-click.
+              </div>
             </div>
           </>
         )}

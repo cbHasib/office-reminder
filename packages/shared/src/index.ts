@@ -26,6 +26,20 @@ export interface Team {
   join_code: string;
   created_by: UUID;
   created_at: Timestamp;
+  require_approval: boolean;
+}
+
+export type JoinRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export interface JoinRequest {
+  id: UUID;
+  team_id: UUID;
+  user_id: UUID;
+  status: JoinRequestStatus;
+  message: string | null;
+  created_at: Timestamp;
+  resolved_at: Timestamp | null;
+  resolved_by: UUID | null;
 }
 
 export interface TeamMember {
@@ -80,6 +94,25 @@ export const DEFAULT_USER_SETTINGS: Omit<UserSettings, "user_id"> = {
 
 export const DEFAULT_ADVANCE_MINUTES = 5;
 export const OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES = 5;
+
+/** Public web URL where teammates sign up, manage teams, and edit reminders. */
+export const WEB_URL = "https://office.hasib.me";
+export const WEB_SIGNUP_URL = `${WEB_URL}/signup`;
+export const WEB_LOGIN_URL  = `${WEB_URL}/login`;
+export const WEB_DASHBOARD_URL = `${WEB_URL}/dashboard/teams`;
+export const WEB_DOWNLOAD_URL  = `${WEB_URL}/download`;
+
+/** Developer credit shown in About. Edit if you fork. */
+export const DEVELOPER = {
+  name: "Hasibul Hasan",
+  handle: "@cbHasib",
+  email: "hasibul.pbn@gmail.com",
+  website: "https://hasib.me",
+  github: "https://github.com/cbHasib",
+} as const;
+
+export const APP_NAME = "Office Reminder";
+export const SOURCE_REPO_URL = "https://github.com/cbHasib/office-reminder";
 
 export const OVERLAY_POSITION_LABELS: Record<OverlayPosition, string> = {
   "top-right":     "Top right",

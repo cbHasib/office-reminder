@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { getVersion } from "@tauri-apps/api/app";
 import { supabase } from "@/lib/supabase";
+import { externalLink, openExternal } from "@/lib/openExternal";
+import { checkForUpdate, type UpdateInfo } from "@/lib/updateCheck";
+import {
+  APP_NAME, DEVELOPER, SOURCE_REPO_URL, WEB_URL, WEB_DOWNLOAD_URL,
+} from "@office-reminder/shared";
 
 export default function AccountTab({ session }: { session: Session }) {
   const [displayName, setDisplayName] = useState("");
@@ -12,6 +18,18 @@ export default function AccountTab({ session }: { session: Session }) {
   const [newPwd2, setNewPwd2] = useState("");
   const [savingPwd, setSavingPwd] = useState(false);
   const [pwdMsg, setPwdMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const [version, setVersion] = useState<string>("");
+  useEffect(() => { getVersion().then(setVersion).catch(() => {}); }, []);
+
+  const [checking, setChecking] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null | "none">(null);
+  async function checkUpdates() {
+    setChecking(true);
+    const u = await checkForUpdate({ ignoreDismissed: true });
+    setChecking(false);
+    setUpdateInfo(u ?? "none");
+  }
 
   useEffect(() => {
     (async () => {
@@ -107,6 +125,93 @@ export default function AccountTab({ session }: { session: Session }) {
           <button className="btn btn-secondary" onClick={logout}>Log out</button>
         </div>
       </div>
+
+      <p className="section-title">About</p>
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 10,
+            background: "linear-gradient(135deg, rgb(var(--brand)), rgb(var(--success)))",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "white", fontWeight: 700, fontSize: 18,
+          }}>OR</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>{APP_NAME}</p>
+            <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>
+              Version {version || "—"}
+            </p>
+          </div>
+          <button className="btn btn-secondary"
+                  onClick={checkUpdates} disabled={checking}
+                  style={{ fontSize: 12 }}>
+            {checking ? "Checking…" : "Check for updates"}
+          </button>
+        </div>
+        {updateInfo === "none" && (
+          <p className="success" style={{ marginBottom: 12, fontSize: 12 }}>
+            You're on the latest version.
+          </p>
+        )}
+        {updateInfo && updateInfo !== "none" && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 10, padding: "8px 10px", marginBottom: 12, borderRadius: 8,
+            background: "rgb(var(--brand) / 0.10)",
+            border: "1px solid rgb(var(--brand) / 0.35)",
+          }}>
+            <span style={{ fontSize: 12 }}>
+              v{updateInfo.latest} is available.
+            </span>
+            <button className="btn btn-primary" style={{ fontSize: 12, padding: "5px 10px" }}
+                    onClick={() => openExternal(WEB_DOWNLOAD_URL)}>
+              Download
+            </button>
+          </div>
+        )}
+
+        <AboutRow label="Web app" value={WEB_URL.replace("https://", "")} href={WEB_URL} />
+        <AboutRow label="Source code" value="github.com/cbHasib/office-reminder" href={SOURCE_REPO_URL} />
+
+        <div style={{
+          marginTop: 14, paddingTop: 14,
+          borderTop: "1px solid rgb(var(--border))",
+        }}>
+          <p className="muted" style={{ margin: "0 0 8px", fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            Built by
+          </p>
+          <p style={{ margin: 0, fontWeight: 600 }}>{DEVELOPER.name}</p>
+          <p className="muted" style={{ margin: "2px 0 8px", fontSize: 12 }}>
+            {DEVELOPER.handle}
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <a className="btn btn-secondary" {...externalLink(DEVELOPER.website)} style={{ textDecoration: "none", fontSize: 12, padding: "6px 10px" }}>
+              Website
+            </a>
+            <a className="btn btn-secondary" {...externalLink(DEVELOPER.github)} style={{ textDecoration: "none", fontSize: 12, padding: "6px 10px" }}>
+              GitHub
+            </a>
+            <a className="btn btn-secondary" {...externalLink(`mailto:${DEVELOPER.email}`)} style={{ textDecoration: "none", fontSize: 12, padding: "6px 10px" }}>
+              Email
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AboutRow({ label, value, href }: { label: string; value: string; href: string }) {
+  return (
+    <div style={{
+      display: "flex", justifyContent: "space-between", alignItems: "center",
+      padding: "6px 0",
+    }}>
+      <span className="muted" style={{ fontSize: 12 }}>{label}</span>
+      <a {...externalLink(href)}
+         className="text-brand"
+         style={{ fontSize: 12, textDecoration: "none", fontFamily: "ui-monospace, monospace" }}>
+        {value} ↗
+      </a>
     </div>
   );
 }

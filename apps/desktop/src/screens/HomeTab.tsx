@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import type { Reminder, UserSettings } from "@office-reminder/shared";
+import { WEB_DASHBOARD_URL } from "@office-reminder/shared";
 import { nextOccurrence } from "@/lib/scheduler";
+import { externalLink } from "@/lib/openExternal";
 
 export default function HomeTab({
   reminders, settings,
@@ -16,18 +18,30 @@ export default function HomeTab({
 
   return (
     <div>
-      <header style={{ marginBottom: 24 }}>
-        <h1 className="h1">Today</h1>
-        <p className="muted" style={{ marginTop: 4 }}>
-          The next {Math.min(8, upcoming.length || 8)} reminders across all your teams.
-        </p>
+      <header style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <div>
+          <h1 className="h1">Today</h1>
+          <p className="muted" style={{ marginTop: 4 }}>
+            The next {Math.min(8, upcoming.length || 8)} reminders across all your teams.
+          </p>
+        </div>
+        <a {...externalLink(WEB_DASHBOARD_URL)} className="btn btn-secondary" style={{ textDecoration: "none" }}>
+          Manage teams
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginLeft: 4 }}>
+            <path d="M4 2h6v6M10 2L4 8M2 4v6h6" />
+          </svg>
+        </a>
       </header>
 
       {upcoming.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: 36 }}>
           <p style={{ fontWeight: 500, margin: 0 }}>You're all clear</p>
           <p className="muted" style={{ marginTop: 4 }}>
-            Add reminders in the web dashboard — they'll show up here automatically.
+            Add reminders in the{" "}
+            <a className="text-brand" {...externalLink(WEB_DASHBOARD_URL)} style={{ textDecoration: "underline" }}>
+              web dashboard
+            </a>{" "}
+            — they'll show up here automatically.
           </p>
         </div>
       ) : (
