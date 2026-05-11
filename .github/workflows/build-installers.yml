@@ -134,10 +134,12 @@ jobs:
         env:
           # When releasing, override the target repo to the public mirror and
           # use the fine-grained PAT that has write access to it.
+          # GITHUB_TOKEN: ${{ needs.setup.outputs.release_tag != '' && secrets.RELEASES_PAT || secrets.GITHUB_TOKEN }}
+          # GITHUB_REPOSITORY: ${{ needs.setup.outputs.release_tag != '' && needs.setup.outputs.releases_repo || github.repository }}
           GITHUB_TOKEN: ${{ needs.setup.outputs.release_tag != '' && secrets.RELEASES_PAT || secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ needs.setup.outputs.release_tag != '' && needs.setup.outputs.releases_repo || github.repository }}
         with:
           projectPath: apps/desktop
+          repo: ${{ needs.setup.outputs.releases_repo }}
           tagName:     ${{ needs.setup.outputs.release_tag }}
           releaseName: "Office Reminder ${{ needs.setup.outputs.release_tag }}"
           releaseBody: |
