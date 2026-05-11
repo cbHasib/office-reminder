@@ -58,7 +58,7 @@ export default async function TeamsPage() {
       {(myRequests?.length ?? 0) > 0 && (
         <section>
           <h2 className="text-sm font-medium uppercase tracking-wide text-subtle mb-3">Pending requests</h2>
-          <PendingRequestsList initial={myRequests ?? []} />
+          <PendingRequestsList initial={myRequests as any ?? []} />
         </section>
       )}
 

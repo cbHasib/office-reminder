@@ -65,7 +65,7 @@ export default async function DownloadPage() {
 
   return (
     <main className="min-h-screen bg-bg">
-      <div className="max-w-3xl mx-auto px-6 py-16">
+      <div className="max-w-5xl mx-auto px-6 py-16">
         <Link href="/" className="text-sm text-brand hover:underline">← Back</Link>
         <h1 className="mt-4 text-3xl md:text-4xl font-semibold tracking-tight">
           Download Office Reminder
