@@ -43,12 +43,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest          # Apple Silicon
+          - platform: macos-latest          # Apple Silicon (M1+). Covers all 2020+ Macs.
             target: aarch64-apple-darwin
             args: "--target aarch64-apple-darwin"
-          - platform: macos-13              # Intel
-            target: x86_64-apple-darwin
-            args: "--target x86_64-apple-darwin"
+          # Intel Mac build intentionally omitted — macos-13 runners queue for 20+ min
+          # and modern Macs are all Apple Silicon. Re-add the macos-13 entry below
+          # if anyone in your team is on a pre-2020 Intel Mac.
           - platform: ubuntu-22.04
             target: ""
             args: ""
