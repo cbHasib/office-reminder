@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type { Reminder } from "@office-reminder/shared";
 import { supabase } from "@/lib/supabase";
@@ -6,6 +6,7 @@ import { loadReminders, saveReminders } from "@/lib/cache";
 import { useUserSettings } from "@/lib/settingsStore";
 import { useReminderScheduler } from "@/lib/useReminderScheduler";
 import { applyTheme } from "@/lib/theme";
+import { notify } from "@/lib/notifications";
 import HomeTab from "./HomeTab";
 import SettingsTab from "./SettingsTab";
 import AccountTab from "./AccountTab";
@@ -17,13 +18,13 @@ export default function Layout({ session }: { session: Session }) {
   const [tab, setTab] = useState<Tab>("home");
   const [reminders, setReminders] = useState<Reminder[]>(() => loadReminders());
   const { settings, update } = useUserSettings(userId);
+  // Track first sync so we don't fire notifications for the initial bulk load
+  const firstSyncDone = useRef(false);
 
-  // Theme follows settings.theme when set; falls back to local storage default
   useEffect(() => {
     if (settings?.theme) applyTheme(settings.theme);
   }, [settings?.theme]);
 
-  // Background data sync — runs as soon as we're authenticated
   useEffect(() => {
     let mounted = true;
 
@@ -31,26 +32,46 @@ export default function Layout({ session }: { session: Session }) {
       const { data } = await supabase
         .from("reminders").select("*").order("scheduled_at", { ascending: true });
       if (mounted && data) { setReminders(data); saveReminders(data); }
+      firstSyncDone.current = true;
     }
 
     refetch();
 
     const chan = supabase.channel("rt-reminders")
       .on("postgres_changes",
-          { event: "*", schema: "public", table: "reminders" },
+          { event: "INSERT", schema: "public", table: "reminders" },
+          async (payload) => {
+            const r = payload.new as Reminder;
+            // Don't notify the admin who just created it
+            if (firstSyncDone.current && r.created_by !== userId) {
+              const when = new Date(r.scheduled_at);
+              const whenStr = when.toLocaleString(undefined, {
+                weekday: "short", hour: "numeric", minute: "2-digit",
+              });
+              notify(
+                "New reminder added",
+                r.rrule ? `${r.title} • repeats from ${whenStr}` : `${r.title} • ${whenStr}`,
+              );
+            }
+            refetch();
+          })
+      .on("postgres_changes",
+          { event: "UPDATE", schema: "public", table: "reminders" },
+          () => { refetch(); })
+      .on("postgres_changes",
+          { event: "DELETE", schema: "public", table: "reminders" },
           () => { refetch(); })
       .on("postgres_changes",
           { event: "*", schema: "public", table: "team_members", filter: `user_id=eq.${userId}` },
           () => { refetch(); })
       .subscribe();
 
-    // Periodic safety net every 5 min in case realtime drops
+    // Safety net every 5 min in case realtime drops
     const id = window.setInterval(refetch, 5 * 60_000);
 
     return () => { mounted = false; supabase.removeChannel(chan); window.clearInterval(id); };
   }, [userId]);
 
-  // Scheduler ticks regardless of which tab is showing
   useReminderScheduler({ reminders, settings, userId });
 
   return (
@@ -71,9 +92,7 @@ export default function Layout({ session }: { session: Session }) {
       </aside>
       <main className="content">
         {tab === "home" && <HomeTab reminders={reminders} settings={settings} />}
-        {tab === "settings" && (
-          <SettingsTab settings={settings} onUpdate={update} />
-        )}
+        {tab === "settings" && <SettingsTab settings={settings} onUpdate={update} />}
         {tab === "account" && <AccountTab session={session} />}
       </main>
     </div>

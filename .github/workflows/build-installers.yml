@@ -1,0 +1,153 @@
+name: Build & publish installers
+
+# Triggers:
+#   - push a tag like v0.1.0  → builds all 3 OSes + auto-publishes a public release
+#   - workflow_dispatch       → manual run, optionally tagged
+#   - push to main            → builds without releasing
+#
+# Publishes the release to RELEASES_REPO (a public mirror) so that downloads
+# work without GitHub authentication, while this source repo stays private.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release as (e.g. v0.1.0). Leave empty for build-only."
+        required: false
+        default: ""
+
+permissions:
+  contents: read  # source repo permissions — we use RELEASES_PAT for the mirror
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag:    ${{ steps.t.outputs.tag }}
+      releases_repo:  ${{ steps.t.outputs.releases_repo }}
+    steps:
+      - id: t
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "releases_repo=${{ vars.RELEASES_REPO }}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest          # Apple Silicon
+            target: aarch64-apple-darwin
+            args: "--target aarch64-apple-darwin"
+          - platform: macos-13              # Intel
+            target: x86_64-apple-darwin
+            args: "--target x86_64-apple-darwin"
+          - platform: ubuntu-22.04
+            target: ""
+            args: ""
+          - platform: windows-latest
+            target: ""
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "apps/desktop/src-tauri -> target"
+
+      - name: Install Linux build deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Write desktop env file
+        shell: bash
+        run: |
+          mkdir -p apps/desktop
+          cat > apps/desktop/.env.local <<EOF
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          EOF
+
+      - name: Build Tauri bundle (& publish to public mirror if tagged)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          # When releasing, override the target repo to the public mirror and
+          # use the fine-grained PAT that has write access to it.
+          GITHUB_TOKEN: ${{ needs.setup.outputs.release_tag != '' && secrets.RELEASES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ needs.setup.outputs.release_tag != '' && needs.setup.outputs.releases_repo || github.repository }}
+          # macOS code-signing — leave empty for unsigned builds.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          tagName:     ${{ needs.setup.outputs.release_tag }}
+          releaseName: "Office Reminder ${{ needs.setup.outputs.release_tag }}"
+          releaseBody: |
+            ## Office Reminder ${{ needs.setup.outputs.release_tag }}
+
+            Pick the installer for your OS below.
+
+            ### macOS
+            - Apple Silicon (M1/M2/M3/M4): `*_aarch64.dmg`
+            - Intel: `*_x64.dmg`
+            - First launch: right-click the app → Open → Open (unsigned build).
+
+            ### Windows
+            - `*_x64-setup.exe` or `*_x64_en-US.msi`
+            - SmartScreen warning is expected. Click More info → Run anyway.
+
+            ### Linux
+            - Debian/Ubuntu: `*_amd64.deb` — `sudo dpkg -i office-reminder_*.deb`
+            - Portable: `*_amd64.AppImage` — `chmod +x` then double-click.
+
+            Built from commit ${{ github.sha }} in the private source repo.
+          releaseDraft: false
+          prerelease:   false
+          args: ${{ matrix.args }}
+
+      - name: Upload installers as workflow artifacts (build-only runs)
+        if: needs.setup.outputs.release_tag == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.platform }}-${{ matrix.target || 'native' }}
+          path: |
+            apps/desktop/src-tauri/target/**/release/bundle/dmg/**
+            apps/desktop/src-tauri/target/**/release/bundle/msi/**
+            apps/desktop/src-tauri/target/**/release/bundle/nsis/**
+            apps/desktop/src-tauri/target/**/release/bundle/deb/**
+            apps/desktop/src-tauri/target/**/release/bundle/appimage/**

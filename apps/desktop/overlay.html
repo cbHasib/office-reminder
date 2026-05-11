@@ -1,11 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="overlay-html">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Reminder</title>
+    <style>
+      /* Force a fully-transparent canvas so the rounded overlay-root is the only thing visible.
+         Has to come before styles.css can paint the html background. */
+      html.overlay-html, html.overlay-html body {
+        background: transparent !important;
+        margin: 0;
+        overflow: hidden;
+        height: 100vh;
+      }
+    </style>
   </head>
-  <body style="margin:0;background:transparent;overflow:hidden;">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/overlay.tsx"></script>
   </body>

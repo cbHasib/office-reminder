@@ -18,9 +18,21 @@ export default function OverlayWindow() {
   return <OverlayContent payload={payload} />;
 }
 
-function mix(a: [number, number, number], b: [number, number, number], t: number): string {
-  const c = a.map((ch, i) => Math.round(ch + (b[i] - ch) * Math.max(0, Math.min(1, t))));
-  return `rgb(${c[0]} ${c[1]} ${c[2]})`;
+function mixTuple(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
+  const tt = Math.max(0, Math.min(1, t));
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * tt),
+    Math.round(a[1] + (b[1] - a[1]) * tt),
+    Math.round(a[2] + (b[2] - a[2]) * tt),
+  ];
+}
+function darken(c: [number, number, number], amount: number): [number, number, number] {
+  const t = Math.max(0, Math.min(1, amount));
+  return [
+    Math.round(c[0] * (1 - t)),
+    Math.round(c[1] * (1 - t)),
+    Math.round(c[2] * (1 - t)),
+  ];
 }
 const SLATE: [number, number, number] = [148, 163, 184];
 const AMBER: [number, number, number] = [251, 191,  36];
@@ -70,15 +82,25 @@ function OverlayContent({ payload }: { payload: OverlayPayload }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [past]);
 
-  let ringColor: string;
-  if (past) ringColor = `rgb(${RED.join(" ")})`;
-  else if (progress < 0.5) ringColor = mix(SLATE, AMBER, progress / 0.5);
-  else                     ringColor = mix(AMBER, RED, (progress - 0.5) / 0.5);
+  // Same color stops drive both the ring and the overlay background.
+  // The background uses darker, more saturated variants of the same hue.
+  let accent: [number, number, number];
+  if (past) accent = RED;
+  else if (progress < 0.5) accent = mixTuple(SLATE, AMBER, progress / 0.5);
+  else                     accent = mixTuple(AMBER, RED, (progress - 0.5) / 0.5);
+
+  const ringColor = `rgb(${accent.join(" ")})`;
+  // Build the bg as a darkened gradient of the accent so text stays readable.
+  const dark = darken(accent, 0.55);
+  const darker = darken(accent, 0.72);
+  const bgStyle = {
+    background: `linear-gradient(135deg, rgb(${dark.join(" ")} / 0.94), rgb(${darker.join(" ")} / 0.92))`,
+  };
 
   const showDismiss = past || payload.dismissibleDuringCountdown;
 
   return (
-    <div className="overlay-root">
+    <div className="overlay-root" style={bgStyle}>
       <div className="overlay-text">
         <p className="overlay-title">{payload.title}</p>
         {payload.description && <p className="overlay-desc">{payload.description}</p>}
@@ -98,7 +120,7 @@ function OverlayContent({ payload }: { payload: OverlayPayload }) {
                   strokeDasharray={CIRC}
                   strokeDashoffset={past ? 0 : CIRC * (1 - progress)} />
         </svg>
-        <div className="label text-white">{past ? "Now" : ringText(remaining)}</div>
+        <div className="ring-label">{past ? "Now" : ringText(remaining)}</div>
       </div>
 
       {showDismiss && (

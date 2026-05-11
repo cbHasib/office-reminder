@@ -22,9 +22,10 @@ export default function MarketingPage() {
           prayer times, meetings, and recurring rituals — instead of getting
           buried in a WhatsApp group.
         </p>
-        <div className="mt-8 flex justify-center gap-3">
+        <div className="mt-8 flex justify-center gap-3 flex-wrap">
           <Link href="/signup" className="btn-primary">Create an account</Link>
           <Link href="/login" className="btn-secondary">Log in</Link>
+          <Link href="/download" className="btn-secondary">Download desktop app</Link>
         </div>
         <p className="mt-12 text-xs text-subtle">
           Free for any team. Sign up · create a team · share a 6-character code.

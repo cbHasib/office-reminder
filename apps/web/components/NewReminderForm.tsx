@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { DEFAULT_ADVANCE_MINUTES } from "@office-reminder/shared";
 
-type Recurrence = "none" | "daily" | "weekdays" | "weekly";
+type Recurrence = "none" | "daily" | "weekdays" | "weekly" | "custom";
 
-function buildRrule(recurrence: Recurrence, scheduled: Date): string | null {
+const DAYS = [
+  { key: "MO", short: "Mon" },
+  { key: "TU", short: "Tue" },
+  { key: "WE", short: "Wed" },
+  { key: "TH", short: "Thu" },
+  { key: "FR", short: "Fri" },
+  { key: "SA", short: "Sat" },
+  { key: "SU", short: "Sun" },
+] as const;
+
+function buildRrule(recurrence: Recurrence, scheduled: Date, customDays: string[]): string | null {
   if (recurrence === "none") return null;
   const h = scheduled.getHours();
   const m = scheduled.getMinutes();
@@ -15,6 +25,9 @@ function buildRrule(recurrence: Recurrence, scheduled: Date): string | null {
     case "daily":    return `FREQ=DAILY;BYHOUR=${h};BYMINUTE=${m}`;
     case "weekdays": return `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=${h};BYMINUTE=${m}`;
     case "weekly":   return `FREQ=WEEKLY;BYHOUR=${h};BYMINUTE=${m}`;
+    case "custom":
+      if (customDays.length === 0) return null;
+      return `FREQ=WEEKLY;BYDAY=${customDays.join(",")};BYHOUR=${h};BYMINUTE=${m}`;
   }
 }
 
@@ -26,18 +39,32 @@ export default function NewReminderForm({ teamId }: { teamId: string }) {
   const [scheduledAt, setScheduledAt] = useState<string>(() => {
     const d = new Date(Date.now() + 60 * 60 * 1000);
     d.setSeconds(0, 0);
-    return d.toISOString().slice(0, 16);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
   });
   const [advance, setAdvance] = useState(DEFAULT_ADVANCE_MINUTES);
   const [recurrence, setRecurrence] = useState<Recurrence>("none");
+  const [customDays, setCustomDays] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const customInvalid = recurrence === "custom" && customDays.length === 0;
+  const rrulePreview = useMemo(
+    () => buildRrule(recurrence, new Date(scheduledAt), customDays),
+    [recurrence, scheduledAt, customDays]
+  );
+
+  function toggleDay(k: string) {
+    setCustomDays((prev) =>
+      prev.includes(k) ? prev.filter((d) => d !== k) : [...prev, k]
+    );
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (customInvalid) { setError("Pick at least one day for custom recurrence."); return; }
     setLoading(true); setError(null);
     const scheduledDate = new Date(scheduledAt);
-    const rrule = buildRrule(recurrence, scheduledDate);
+    const rrule = buildRrule(recurrence, scheduledDate, customDays);
     const { data: { user } } = await supabase.auth.getUser();
 
     const { error } = await supabase.from("reminders").insert({
@@ -58,7 +85,7 @@ export default function NewReminderForm({ teamId }: { teamId: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="card space-y-4">
+    <form onSubmit={onSubmit} className="card card-pad space-y-4 p-6">
       <div>
         <label className="label">Title</label>
         <input className="input" required value={title} onChange={(e) => setTitle(e.target.value)}
@@ -83,21 +110,45 @@ export default function NewReminderForm({ teamId }: { teamId: string }) {
       </div>
       <div>
         <label className="label">Recurrence</label>
-        <select className="input" value={recurrence}
+        <select className="select" value={recurrence}
                 onChange={(e) => setRecurrence(e.target.value as Recurrence)}>
           <option value="none">One-off</option>
           <option value="daily">Every day</option>
-          <option value="weekdays">Weekdays only</option>
+          <option value="weekdays">Weekdays only (Mon–Fri)</option>
           <option value="weekly">Weekly (same day of week)</option>
+          <option value="custom">Custom days…</option>
         </select>
-        <p className="text-xs text-ink-500 mt-1">
-          For more advanced rules, you can edit the RRULE string later.
-        </p>
+        {recurrence === "custom" && (
+          <div className="mt-3">
+            <p className="hint mb-2">Pick the days this reminder repeats on:</p>
+            <div className="flex flex-wrap gap-2">
+              {DAYS.map((d) => {
+                const on = customDays.includes(d.key);
+                return (
+                  <button type="button" key={d.key}
+                          onClick={() => toggleDay(d.key)}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition
+                                      ${on
+                                        ? "bg-brand text-brand-fg border-brand"
+                                        : "bg-surface text-fg border-border hover:bg-muted"}`}>
+                    {d.short}
+                  </button>
+                );
+              })}
+            </div>
+            {customInvalid && (
+              <p className="hint text-danger mt-2">Pick at least one day.</p>
+            )}
+          </div>
+        )}
+        {rrulePreview && (
+          <p className="hint font-mono">RRULE preview: {rrulePreview}</p>
+        )}
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
       <div className="flex gap-2 justify-end">
         <button type="button" className="btn-secondary" onClick={() => router.back()}>Cancel</button>
-        <button className="btn-primary" disabled={loading}>
+        <button className="btn-primary" disabled={loading || customInvalid}>
           {loading ? "Saving…" : "Create reminder"}
         </button>
       </div>
