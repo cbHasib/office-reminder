@@ -1,10 +1,10 @@
-import React from 'react';
 
 "use client";
 
+import React from 'react';
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 
 const VerifyPage = () => {
