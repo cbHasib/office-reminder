@@ -61,26 +61,32 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building Office Reminder");
 
-    app.run(|app_handle, event| {
-        match event {
-            // macOS Dock click: re-show the main window if it's hidden.
-            // The Reopen variant only exists on macOS/iOS, so gate the arm too.
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
-            RunEvent::Reopen { has_visible_windows, .. } => {
-                if !has_visible_windows {
-                    show_main_window(app_handle);
-                }
-            }
-            // Don't actually exit when all windows close — stay in the tray.
-            RunEvent::ExitRequested { api, .. } => {
-                api.prevent_exit();
-            }
-            _ => {
-                // app_handle is unused on platforms without Reopen; silence warning.
-                let _ = app_handle;
+    app.run(|app_handle, event| handle_run_event(app_handle, event));
+}
+
+// macOS / iOS: handle the Dock "Reopen" event (click app icon while window is hidden).
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn handle_run_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>, event: RunEvent) {
+    match event {
+        RunEvent::Reopen { has_visible_windows, .. } => {
+            if !has_visible_windows {
+                show_main_window(app);
             }
         }
-    });
+        RunEvent::ExitRequested { api, .. } => {
+            api.prevent_exit();
+        }
+        _ => {}
+    }
+}
+
+// Windows / Linux: no Dock, no Reopen variant exists on these targets,
+// so reference only the variants that are universally available.
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+fn handle_run_event<R: tauri::Runtime>(_app: &tauri::AppHandle<R>, event: RunEvent) {
+    if let RunEvent::ExitRequested { api, .. } = event {
+        api.prevent_exit();
+    }
 }
 
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
