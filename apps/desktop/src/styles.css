@@ -62,6 +62,7 @@ input, button, select, textarea { font: inherit; color: inherit; }
 .app {
   display: flex; height: 100vh;
   background: rgb(var(--bg)); color: rgb(var(--fg));
+  position: relative;
 }
 .sidebar {
   width: 200px; flex-shrink: 0;
@@ -70,10 +71,21 @@ input, button, select, textarea { font: inherit; color: inherit; }
   display: flex; flex-direction: column;
   padding: 14px;
 }
-/* Make the top of the sidebar draggable so you can move the window */
+/* A draggable strip across the FULL width of the window so the user can pick
+   it up from anywhere along the top — on macOS with titleBarStyle: Overlay,
+   this is the only way to move the window. */
 .titlebar-drag {
   -webkit-app-region: drag;
+  position: absolute;
+  top: 0; left: 0; right: 0;
   height: 28px;
+  z-index: 100;
+  pointer-events: auto;
+}
+/* But buttons/links should still be clickable when they happen to live
+   under the drag strip — sidebar items get an explicit no-drag region. */
+.nav-item, .btn, button, a, input, select, textarea {
+  -webkit-app-region: no-drag;
 }
 .brand {
   font-weight: 600; font-size: 14px;
@@ -239,6 +251,26 @@ input, button, select, textarea { font: inherit; color: inherit; }
     rgb(0 0 0 / 0.08) 100%);
   border-radius: inherit;
   pointer-events: none;
+  z-index: 0;
+}
+/* Animated accent border: a thin pulsing ring in the accent color. The
+   color is driven from inline style on the parent (var --accent), so the
+   border interpolates along with the bg slate→amber→red. */
+.overlay-root::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  border: 1.5px solid var(--accent, rgb(148 163 184 / 0.9));
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.06) inset,
+    0 0 18px -2px var(--accent, rgb(148 163 184 / 0.5));
+  animation: overlay-pulse 2.2s ease-in-out infinite;
+}
+@keyframes overlay-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.005); }
 }
 .overlay-root > * { position: relative; z-index: 1; }
 @keyframes overlay-in {

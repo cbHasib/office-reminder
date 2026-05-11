@@ -93,8 +93,10 @@ function OverlayContent({ payload }: { payload: OverlayPayload }) {
   // Build the bg as a darkened gradient of the accent so text stays readable.
   const dark = darken(accent, 0.55);
   const darker = darken(accent, 0.72);
-  const bgStyle = {
+  const bgStyle: React.CSSProperties = {
     background: `linear-gradient(135deg, rgb(${dark.join(" ")} / 0.94), rgb(${darker.join(" ")} / 0.92))`,
+    // Expose accent so ::after border + glow can animate with it.
+    ["--accent" as any]: ringColor,
   };
 
   const showDismiss = past || payload.dismissibleDuringCountdown;

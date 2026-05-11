@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 
@@ -10,39 +10,42 @@ export default function JoinTeamForm() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const submitting = useRef(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true); setError(null);
     const upper = code.trim().toUpperCase();
 
-    const { data: team, error: lookupErr } = await supabase
-      .from("teams")
-      .select("id")
-      .eq("join_code", upper)
-      .single();
-    if (lookupErr || !team) {
-      setLoading(false);
-      setError("No team with that code.");
-      return;
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error: joinErr } = await supabase
-      .from("team_members")
-      .insert({ team_id: team.id, user_id: user!.id, role: "member" });
-
-    setLoading(false);
-    if (joinErr) {
-      if (joinErr.code === "23505") {
-        setError("You're already in that team.");
-      } else {
-        setError(joinErr.message);
+    try {
+      const { data: team, error: lookupErr } = await supabase
+        .from("teams")
+        .select("id")
+        .eq("join_code", upper)
+        .single();
+      if (lookupErr || !team) {
+        setError("No team with that code.");
+        return;
       }
-      return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: joinErr } = await supabase
+        .from("team_members")
+        .insert({ team_id: team.id, user_id: user!.id, role: "member" });
+
+      if (joinErr) {
+        if (joinErr.code === "23505") setError("You're already in that team.");
+        else setError(joinErr.message);
+        return;
+      }
+      router.push(`/dashboard/teams/${team.id}`);
+      router.refresh();
+    } finally {
+      setLoading(false);
+      submitting.current = false;
     }
-    router.push(`/dashboard/teams/${team.id}`);
-    router.refresh();
   }
 
   return (

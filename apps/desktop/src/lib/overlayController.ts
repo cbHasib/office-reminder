@@ -20,41 +20,61 @@ export interface OverlayPayload {
   theme: Theme;
 }
 
-let openTracker = false;
-export function isOverlayOpen(): boolean { return openTracker; }
+/** Async lock to serialize open/close. */
+let inflight: Promise<unknown> | null = null;
 
+async function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  while (inflight) { try { await inflight; } catch {} }
+  const p = (async () => fn())();
+  inflight = p.finally(() => { if (inflight === p) inflight = null; });
+  return p;
+}
+
+/** Real check: does Tauri have an overlay window right now? */
+export async function isOverlayOpen(): Promise<boolean> {
+  try {
+    const w = await WebviewWindow.getByLabel(OVERLAY_LABEL).catch(() => null);
+    if (!w) return false;
+    // Some Tauri versions return a stale handle for a closed window.
+    // Verify it's actually visible.
+    const visible = await w.isVisible().catch(() => false);
+    return visible;
+  } catch {
+    return false;
+  }
+}
+
+/** Open the overlay window (idempotent — closes any existing one first). */
 export async function openOverlay(
   payload: OverlayPayload,
   position: OverlayPosition,
 ): Promise<void> {
-  const hash = encodeURIComponent(JSON.stringify(payload));
+  return withLock(async () => {
+    // Close any previous overlay first so we never leak a stale one.
+    const existing = await WebviewWindow.getByLabel(OVERLAY_LABEL).catch(() => null);
+    if (existing) {
+      try { await existing.close(); } catch {}
+      // Give Tauri a tick to fully tear down before re-creating with the same label.
+      await new Promise((r) => setTimeout(r, 60));
+    }
 
-  // Close any prior overlay
-  const existing = await WebviewWindow.getByLabel(OVERLAY_LABEL).catch(() => null);
-  if (existing) await existing.close().catch(() => {});
+    const hash = encodeURIComponent(JSON.stringify(payload));
+    const { x, y } = await computePosition(position);
 
-  const { x, y } = await computePosition(position);
-
-  const win = new WebviewWindow(OVERLAY_LABEL, {
-    url: `overlay.html#${hash}`,
-    title: "Reminder",
-    width: OVERLAY_W,
-    height: OVERLAY_H,
-    x, y,
-    resizable: false,
-    decorations: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    transparent: true,
-    focus: false,
-    shadow: false,
-  });
-
-  openTracker = true;
-  win.once("tauri://destroyed", () => { openTracker = false; });
-  win.once("tauri://error", (e) => {
-    console.error("overlay window error:", e);
-    openTracker = false;
+    new WebviewWindow(OVERLAY_LABEL, {
+      url: `overlay.html#${hash}`,
+      title: "Reminder",
+      width: OVERLAY_W,
+      height: OVERLAY_H,
+      x, y,
+      resizable: false,
+      decorations: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      transparent: true,
+      focus: false,
+      shadow: false,
+    });
   });
 }
 
@@ -69,7 +89,6 @@ async function computePosition(pos: OverlayPosition): Promise<{ x: number; y: nu
     const center = (screenW - OVERLAY_W) / 2;
     const top    = SCREEN_MARGIN;
     const bottom = screenH - OVERLAY_H - SCREEN_MARGIN - BOTTOM_DOCK_PADDING;
-
     switch (pos) {
       case "top-right":     return { x: right,  y: top };
       case "top-left":      return { x: SCREEN_MARGIN, y: top };
@@ -84,7 +103,6 @@ async function computePosition(pos: OverlayPosition): Promise<{ x: number; y: nu
   }
 }
 
-/** Used by the overlay window itself to close. */
 export async function closeMyself(): Promise<void> {
   await getCurrentWebviewWindow().close();
 }

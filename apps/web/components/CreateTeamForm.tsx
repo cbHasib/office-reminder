@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { generateJoinCode } from "@office-reminder/shared";
@@ -11,33 +11,43 @@ export default function CreateTeamForm() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // A ref-based latch so a second click can't slip through while React is
+  // still applying setLoading(true). State updates are async; refs aren't.
+  const submitting = useRef(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true); setError(null);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError("Not authenticated"); setLoading(false); return; }
 
-    // Try a few times in case the random join_code collides
-    let attempt = 0;
-    let inserted: any = null;
-    let lastErr: any = null;
-    while (attempt < 5 && !inserted) {
-      const join_code = generateJoinCode();
-      const { data, error } = await supabase
-        .from("teams")
-        .insert({ name, join_code, created_by: user.id })
-        .select()
-        .single();
-      if (error && error.code === "23505") { attempt++; continue; } // unique violation
-      lastErr = error;
-      inserted = data;
-      break;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setError("Not authenticated"); return; }
+
+      // Try a few times in case the random join_code collides
+      let attempt = 0;
+      let inserted: any = null;
+      let lastErr: any = null;
+      while (attempt < 5 && !inserted) {
+        const join_code = generateJoinCode();
+        const { data, error } = await supabase
+          .from("teams")
+          .insert({ name: name.trim(), join_code, created_by: user.id })
+          .select()
+          .single();
+        if (error && error.code === "23505") { attempt++; continue; }
+        lastErr = error;
+        inserted = data;
+        break;
+      }
+      if (!inserted) { setError(lastErr?.message ?? "Could not create team"); return; }
+      router.push(`/dashboard/teams/${inserted.id}`);
+      router.refresh();
+    } finally {
+      setLoading(false);
+      submitting.current = false;
     }
-    setLoading(false);
-    if (!inserted) { setError(lastErr?.message ?? "Could not create team"); return; }
-    router.push(`/dashboard/teams/${inserted.id}`);
-    router.refresh();
   }
 
   return (

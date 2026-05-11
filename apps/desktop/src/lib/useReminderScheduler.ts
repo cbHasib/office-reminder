@@ -10,29 +10,46 @@ interface Params {
 }
 
 export function useReminderScheduler({ reminders, settings, userId }: Params) {
-  const firedKeys = useRef<Set<string>>(new Set());
+  // Persistent across renders. Cleared once a key is older than 24h
+  // so the cache doesn't grow unbounded.
+  const firedKeys = useRef<Map<string, number>>(new Map());
+  // Guards against parallel tick processing.
+  const ticking = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    function tick() {
-      if (cancelled || !settings) return;
-      const now = new Date();
-      for (const r of reminders) {
-        if (isSilencedForUser(r, settings, userId)) continue;
-        const next = nextOccurrence(r, now);
-        if (!next) continue;
+    async function tick() {
+      if (cancelled || ticking.current || !settings) return;
+      ticking.current = true;
 
-        const lead = effectiveAdvanceMinutes(r, settings);
-        const fireAt = new Date(next.getTime() - lead * 60_000);
+      try {
+        // GC old keys
+        const cutoff = Date.now() - 24 * 60 * 60_000;
+        for (const [k, t] of firedKeys.current) {
+          if (t < cutoff) firedKeys.current.delete(k);
+        }
 
-        if (now >= fireAt && now <= next) {
+        const now = new Date();
+        // Look at each reminder; only one overlay can show at a time.
+        for (const r of reminders) {
+          if (isSilencedForUser(r, settings, userId)) continue;
+          const next = nextOccurrence(r, now);
+          if (!next) continue;
+
+          const lead = effectiveAdvanceMinutes(r, settings);
+          const fireAt = new Date(next.getTime() - lead * 60_000);
+          if (now < fireAt || now > next) continue;
+
           const key = `${r.id}@${next.toISOString()}`;
           if (firedKeys.current.has(key)) continue;
-          firedKeys.current.add(key);
 
-          if (!isOverlayOpen()) {
-            openOverlay(
+          // Real check, not just a local boolean — survives HMR / strict mode.
+          if (await isOverlayOpen()) continue;
+
+          firedKeys.current.set(key, Date.now());
+          try {
+            await openOverlay(
               {
                 reminderId: r.id,
                 title: r.title,
@@ -45,9 +62,18 @@ export function useReminderScheduler({ reminders, settings, userId }: Params) {
                 theme: settings.theme,
               },
               settings.overlay_position,
-            ).catch((err) => console.error("Failed to open overlay:", err));
+            );
+          } catch (err) {
+            console.error("Failed to open overlay:", err);
+            // Don't unset the firedKey — if openOverlay failed, we'd just
+            // re-attempt next tick and likely fail again.
           }
+
+          // Only one overlay per tick.
+          break;
         }
+      } finally {
+        ticking.current = false;
       }
     }
 

@@ -3,13 +3,6 @@ name: Build & publish installers
 # Triggers:
 #   - push a tag like v0.1.0  → builds all 3 OSes + auto-publishes a public release.
 #   - workflow_dispatch       → manual run from the Actions UI. Optionally tagged.
-#
-# We deliberately DON'T build on every push to main — that doubled the work when
-# `git push origin main --tags` fired both a branch push AND a tag push. To sanity-
-# check a build without releasing, use the manual dispatch with the tag input empty.
-#
-# Publishes the release to RELEASES_REPO (a public mirror) so that downloads
-# work without GitHub authentication, while this source repo stays private.
 on:
   push:
     tags: ["v*"]
@@ -20,21 +13,18 @@ on:
         required: false
         default: ""
 
-# Cancel any in-flight run for the same ref when a new commit lands. Tagged
-# release runs are kept (they have unique refs).
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 permissions:
-  contents: read  # source repo permissions — we use RELEASES_PAT for the mirror
+  contents: write  # so the default GITHUB_TOKEN can create releases in this repo
 
 jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      release_tag:    ${{ steps.t.outputs.tag }}
-      releases_repo:  ${{ steps.t.outputs.releases_repo }}
+      release_tag: ${{ steps.t.outputs.tag }}
     steps:
       - id: t
         run: |
@@ -43,7 +33,6 @@ jobs:
           else
             echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
           fi
-          echo "releases_repo=${{ vars.RELEASES_REPO }}" >> "$GITHUB_OUTPUT"
 
   build:
     needs: setup
@@ -54,9 +43,6 @@ jobs:
           - platform: macos-latest          # Apple Silicon (M1+). Covers all 2020+ Macs.
             target: aarch64-apple-darwin
             args: "--target aarch64-apple-darwin"
-          # Intel Mac build intentionally omitted — macos-13 runners queue for 20+ min
-          # and modern Macs are all Apple Silicon. Re-add the macos-13 entry below
-          # if anyone in your team is on a pre-2020 Intel Mac.
           - platform: ubuntu-22.04
             target: ""
             args: ""
@@ -107,11 +93,10 @@ jobs:
           VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
           EOF
 
-      # Conditionally set Apple signing env vars ONLY when the secrets exist
-      # and SIGN_MACOS variable is "true". Empty strings would make Tauri try
-      # (and fail) to sign with a non-existent cert, so we have to gate this.
+      # Apple signing only fires when SIGN_MACOS variable = "true" AND the cert
+      # secrets are populated. Otherwise we build an unsigned .dmg.
       - name: Compose Apple signing env
-        if: (matrix.platform == 'macos-latest' || matrix.platform == 'macos-13') && vars.SIGN_MACOS == 'true'
+        if: matrix.platform == 'macos-latest' && vars.SIGN_MACOS == 'true'
         env:
           APPLE_CERTIFICATE_S: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD_S: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -129,17 +114,12 @@ jobs:
             echo "APPLE_TEAM_ID=$APPLE_TEAM_ID_S"
           } >> "$GITHUB_ENV"
 
-      - name: Build Tauri bundle (& publish to public mirror if tagged)
+      - name: Build Tauri bundle (& publish release if tagged)
         uses: tauri-apps/tauri-action@v0
         env:
-          # When releasing, override the target repo to the public mirror and
-          # use the fine-grained PAT that has write access to it.
-          # GITHUB_TOKEN: ${{ needs.setup.outputs.release_tag != '' && secrets.RELEASES_PAT || secrets.GITHUB_TOKEN }}
-          # GITHUB_REPOSITORY: ${{ needs.setup.outputs.release_tag != '' && needs.setup.outputs.releases_repo || github.repository }}
-          GITHUB_TOKEN: ${{ needs.setup.outputs.release_tag != '' && secrets.RELEASES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/desktop
-          repo: ${{ needs.setup.outputs.releases_repo }}
           tagName:     ${{ needs.setup.outputs.release_tag }}
           releaseName: "Office Reminder ${{ needs.setup.outputs.release_tag }}"
           releaseBody: |
@@ -149,7 +129,6 @@ jobs:
 
             ### macOS
             - Apple Silicon (M1/M2/M3/M4): `*_aarch64.dmg`
-            - Intel: `*_x64.dmg`
             - First launch: right-click the app → Open → Open (unsigned build).
 
             ### Windows
@@ -160,7 +139,7 @@ jobs:
             - Debian/Ubuntu: `*_amd64.deb` — `sudo dpkg -i office-reminder_*.deb`
             - Portable: `*_amd64.AppImage` — `chmod +x` then double-click.
 
-            Built from commit ${{ github.sha }} in the private source repo.
+            Built from commit ${{ github.sha }}.
           releaseDraft: false
           prerelease:   false
           args: ${{ matrix.args }}

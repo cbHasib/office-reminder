@@ -17,17 +17,20 @@ const DAYS = [
   { key: "SU", short: "Sun" },
 ] as const;
 
-function buildRrule(recurrence: Recurrence, scheduled: Date, customDays: string[]): string | null {
+function buildRrule(recurrence: Recurrence, _scheduled: Date, customDays: string[]): string | null {
+  // We intentionally do NOT include BYHOUR/BYMINUTE here. The reminder's
+  // scheduled_at (stored as a UTC timestamp) already carries the time-of-day,
+  // and rrule's expansion inherits it from DTSTART. Adding BYHOUR/BYMINUTE
+  // would force a specific UTC hour, which causes timezone shifts (e.g. 3 PM
+  // Bangladesh becoming 9 PM the next day).
   if (recurrence === "none") return null;
-  const h = scheduled.getHours();
-  const m = scheduled.getMinutes();
   switch (recurrence) {
-    case "daily":    return `FREQ=DAILY;BYHOUR=${h};BYMINUTE=${m}`;
-    case "weekdays": return `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=${h};BYMINUTE=${m}`;
-    case "weekly":   return `FREQ=WEEKLY;BYHOUR=${h};BYMINUTE=${m}`;
+    case "daily":    return `FREQ=DAILY`;
+    case "weekdays": return `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR`;
+    case "weekly":   return `FREQ=WEEKLY`;
     case "custom":
       if (customDays.length === 0) return null;
-      return `FREQ=WEEKLY;BYDAY=${customDays.join(",")};BYHOUR=${h};BYMINUTE=${m}`;
+      return `FREQ=WEEKLY;BYDAY=${customDays.join(",")}`;
   }
 }
 

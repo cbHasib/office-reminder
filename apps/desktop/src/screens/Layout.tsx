@@ -76,8 +76,10 @@ export default function Layout({ session }: { session: Session }) {
 
   return (
     <div className="app">
+      {/* Full-width draggable strip across the top of the entire window. */}
+      <div className="titlebar-drag" />
       <aside className="sidebar">
-        <div className="titlebar-drag" />
+        <div style={{ height: 28 }} />
         <div className="brand">Office Reminder</div>
         <nav className="nav">
           <NavItem active={tab === "home"} onClick={() => setTab("home")} icon={<HomeIcon />} label="Today" />
