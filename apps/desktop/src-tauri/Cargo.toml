@@ -1,6 +1,6 @@
 [package]
 name = "office-reminder"
-version = "0.1.5"
+version = "0.1.3"
 description = "Office Reminder desktop client"
 authors = ["Office Reminder"]
 edition = "2021"
