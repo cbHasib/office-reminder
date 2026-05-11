@@ -99,6 +99,28 @@ jobs:
           VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
           EOF
 
+      # Conditionally set Apple signing env vars ONLY when the secrets exist
+      # and SIGN_MACOS variable is "true". Empty strings would make Tauri try
+      # (and fail) to sign with a non-existent cert, so we have to gate this.
+      - name: Compose Apple signing env
+        if: (matrix.platform == 'macos-latest' || matrix.platform == 'macos-13') && vars.SIGN_MACOS == 'true'
+        env:
+          APPLE_CERTIFICATE_S: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD_S: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY_S: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID_S: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD_S: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID_S: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          {
+            echo "APPLE_CERTIFICATE=$APPLE_CERTIFICATE_S"
+            echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD_S"
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY_S"
+            echo "APPLE_ID=$APPLE_ID_S"
+            echo "APPLE_PASSWORD=$APPLE_PASSWORD_S"
+            echo "APPLE_TEAM_ID=$APPLE_TEAM_ID_S"
+          } >> "$GITHUB_ENV"
+
       - name: Build Tauri bundle (& publish to public mirror if tagged)
         uses: tauri-apps/tauri-action@v0
         env:
@@ -106,13 +128,6 @@ jobs:
           # use the fine-grained PAT that has write access to it.
           GITHUB_TOKEN: ${{ needs.setup.outputs.release_tag != '' && secrets.RELEASES_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ needs.setup.outputs.release_tag != '' && needs.setup.outputs.releases_repo || github.repository }}
-          # macOS code-signing — leave empty for unsigned builds.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: apps/desktop
           tagName:     ${{ needs.setup.outputs.release_tag }}

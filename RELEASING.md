@@ -130,7 +130,9 @@ Your private repo never leaks. The public mirror only contains compiled binaries
 
 For internal-office use, unsigned is fine — your teammates do the right-click-Open or "Run anyway" dance once. If you start distributing to strangers:
 
-- **macOS** ($99/yr Apple Developer): set `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` as repo secrets. The workflow already reads them.
+- **macOS** ($99/yr Apple Developer):
+  1. Add these repo **secrets**: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`.
+  2. Add a repo **variable** `SIGN_MACOS = true`. The workflow won't even attempt signing until you flip this — until then, empty signing secrets cause Tauri to crash mid-build (which is what caused that "SecKeychainItemImport" error you may have seen).
 - **Windows** ($150–300/yr Authenticode cert): set `WINDOWS_CERTIFICATE` (base64 `.pfx`) and `WINDOWS_CERTIFICATE_PASSWORD`. You'll also configure `signingIdentity` in `apps/desktop/src-tauri/tauri.conf.json` and add a Windows signing step.
 
 Full setup at [tauri.app/develop/sign-macos](https://tauri.app/develop/sign-macos/) and [tauri.app/develop/sign-windows](https://tauri.app/develop/sign-windows/).
