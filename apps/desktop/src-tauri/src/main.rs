@@ -64,6 +64,8 @@ fn main() {
     app.run(|app_handle, event| {
         match event {
             // macOS Dock click: re-show the main window if it's hidden.
+            // The Reopen variant only exists on macOS/iOS, so gate the arm too.
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             RunEvent::Reopen { has_visible_windows, .. } => {
                 if !has_visible_windows {
                     show_main_window(app_handle);
@@ -73,7 +75,10 @@ fn main() {
             RunEvent::ExitRequested { api, .. } => {
                 api.prevent_exit();
             }
-            _ => {}
+            _ => {
+                // app_handle is unused on platforms without Reopen; silence warning.
+                let _ = app_handle;
+            }
         }
     });
 }
