@@ -64,7 +64,7 @@ export default async function MembersPage({ params }: { params: Promise<{ teamId
           createdBy={team.created_by}
           currentUserId={user!.id}
           isAdmin={isAdmin}
-          initial={members ?? []}
+          initial={members as any ?? []}
         />
       </section>
     </div>
