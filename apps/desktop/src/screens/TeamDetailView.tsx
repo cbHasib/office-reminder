@@ -21,7 +21,8 @@ interface RequestRow {
   id: string;
   message: string | null;
   created_at: string;
-  user: { id: string; display_name: string | null; email: string };
+  // user can be null if RLS hides the user row — we render a fallback below.
+  user: { id: string; display_name: string | null; email: string } | null;
 }
 
 interface ReminderRow {
@@ -51,7 +52,7 @@ export default function TeamDetailView({
   const isAdmin = myMembership?.role === "admin";
 
   async function refresh() {
-    const [{ data: t }, { data: ms }, { data: rs }, { data: rms }] = await Promise.all([
+    const [{ data: t }, { data: ms }, { data: rawReqs }, { data: rms }] = await Promise.all([
       supabase
         .from("teams")
         .select("id, name, join_code, require_approval, created_by")
@@ -61,9 +62,11 @@ export default function TeamDetailView({
         .from("team_members")
         .select("role, joined_at, user:users(id, display_name, email)")
         .eq("team_id", teamId),
+      // Two-step fetch for requests so we don't depend on PostgREST embed
+      // RLS behavior. Step 1: raw rows.
       supabase
         .from("join_requests")
-        .select("id, message, created_at, user:users(id, display_name, email)")
+        .select("id, user_id, message, created_at")
         .eq("team_id", teamId)
         .eq("status", "pending")
         .order("created_at", { ascending: true }),
@@ -73,9 +76,29 @@ export default function TeamDetailView({
         .eq("team_id", teamId)
         .order("scheduled_at", { ascending: true }),
     ]);
+
+    // Step 2: fetch requester user rows separately (no inner join trap).
+    let requestsWithUsers: any[] = [];
+    const reqList = rawReqs ?? [];
+    if (reqList.length > 0) {
+      const ids = Array.from(new Set(reqList.map((r: any) => r.user_id)));
+      const { data: users } = await supabase
+        .from("users")
+        .select("id, display_name, email")
+        .in("id", ids);
+      const map = new Map<string, any>();
+      (users ?? []).forEach((u: any) => map.set(u.id, u));
+      requestsWithUsers = reqList.map((r: any) => ({
+        id: r.id,
+        message: r.message,
+        created_at: r.created_at,
+        user: map.get(r.user_id) ?? null,
+      }));
+    }
+
     setTeam(t as any);
     setMembers((ms ?? []) as any);
-    setRequests((rs ?? []) as any);
+    setRequests(requestsWithUsers);
     setReminders((rms ?? []) as any);
     setLoading(false);
   }
@@ -218,12 +241,15 @@ function RequestsPanel({ teamId, requests, onChange }: {
 
   return (
     <div className="card" style={{ padding: "4px 18px" }}>
-      {requests.map((r) => (
+      {requests.map((r) => {
+        const name  = r.user?.display_name ?? r.user?.email ?? "Pending user";
+        const email = r.user?.email ?? "(profile hidden)";
+        return (
         <div key={r.id} className="upcoming-item">
           <div style={{ minWidth: 0 }}>
-            <p style={{ margin: 0, fontWeight: 500 }}>{r.user.display_name ?? r.user.email}</p>
+            <p style={{ margin: 0, fontWeight: 500 }}>{name}</p>
             <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>
-              {r.user.email} · {new Date(r.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+              {email} · {new Date(r.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
             </p>
             {r.message && <p className="muted" style={{ margin: "4px 0 0", fontSize: 12, fontStyle: "italic" }}>"{r.message}"</p>}
           </div>
@@ -238,7 +264,8 @@ function RequestsPanel({ teamId, requests, onChange }: {
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -9,7 +9,8 @@ interface RequestRow {
   status: "pending" | "approved" | "rejected" | "cancelled";
   message: string | null;
   created_at: string;
-  user: { id: string; display_name: string | null; email: string };
+  // user can be null if RLS hides it; we render a fallback in that case.
+  user: { id: string; display_name: string | null; email: string } | null;
 }
 
 export default function JoinRequestsPanel({
@@ -50,12 +51,15 @@ export default function JoinRequestsPanel({
   return (
     <div className="card overflow-hidden">
       <ul className="divide-y divide-border">
-        {rows.map((r) => (
+        {rows.map((r) => {
+          const name = r.user?.display_name ?? r.user?.email ?? "Pending user";
+          const email = r.user?.email ?? "(profile hidden)";
+          return (
           <li key={r.id} className="px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-medium truncate">{r.user.display_name ?? r.user.email}</p>
+              <p className="font-medium truncate">{name}</p>
               <p className="text-xs text-subtle truncate">
-                {r.user.email} · requested {new Date(r.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                {email} · requested {new Date(r.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
               </p>
               {r.message && (
                 <p className="text-xs text-subtle mt-1 italic">"{r.message}"</p>
@@ -78,7 +82,8 @@ export default function JoinRequestsPanel({
               </button>
             </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );

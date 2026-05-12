@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { generateJoinCode } from "@office-reminder/shared";
+import TeamDetailView from "./TeamDetailView";
 
 interface TeamLite {
   id: string;
@@ -22,6 +23,7 @@ export default function TeamsTab({
   const [teams, setTeams] = useState<Membership[]>([]);
   const [myReqs, setMyReqs] = useState<MyRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openTeamId, setOpenTeamId] = useState<string | null>(null);
 
   async function refresh() {
     const [{ data: ms }, { data: rs }] = await Promise.all([
@@ -53,6 +55,18 @@ export default function TeamsTab({
     return () => { supabase.removeChannel(chan); };
   }, [userId]);
 
+  // Drill-in view for a single team
+  if (openTeamId) {
+    return (
+      <TeamDetailView
+        teamId={openTeamId}
+        session={session}
+        onBack={() => { setOpenTeamId(null); refresh(); }}
+        onNewReminder={(id) => onPick?.(id)}
+      />
+    );
+  }
+
   return (
     <div>
       <header style={{ marginBottom: 24 }}>
@@ -70,7 +84,9 @@ export default function TeamsTab({
       ) : (
         <div className="card" style={{ padding: "4px 18px" }}>
           {teams.map((m) => (
-            <TeamRow key={m.team.id} m={m} session={session} onPick={onPick} onChange={refresh} />
+            <TeamRow key={m.team.id} m={m}
+                     onOpen={() => setOpenTeamId(m.team.id)}
+                     session={session} onPick={onPick} onChange={refresh} />
           ))}
         </div>
       )}
@@ -99,43 +115,41 @@ export default function TeamsTab({
   );
 }
 
-function TeamRow({ m, session, onPick, onChange }: {
+function TeamRow({ m, session, onPick, onOpen, onChange }: {
   m: Membership; session: Session;
   onPick?: (teamId: string) => void;
+  onOpen: () => void;
   onChange: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
-
-  async function leave() {
-    if (!confirm(`Leave team "${m.team.name}"?`)) return;
-    setBusy(true);
-    const { error } = await supabase
-      .from("team_members")
-      .delete()
-      .eq("team_id", m.team.id)
-      .eq("user_id", session.user.id);
-    setBusy(false);
-    if (error) { alert(error.message); return; }
-    onChange();
-  }
+  // Make the whole row clickable to drill in, but keep the buttons working
+  // by stopping propagation on their own clicks.
+  void session;
+  void onChange;
 
   return (
-    <div className="upcoming-item">
+    <div className="upcoming-item"
+         style={{ cursor: "pointer" }}
+         onClick={onOpen}>
       <div style={{ minWidth: 0 }}>
         <p style={{ margin: 0, fontWeight: 500 }}>{m.team.name}</p>
         <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>
           Code <span style={{ fontFamily: "ui-monospace, monospace" }}>{m.team.join_code}</span>
           {" · "}<span style={{ textTransform: "capitalize" }}>{m.role}</span>
+          {m.team.require_approval && " · approval required"}
         </p>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         {onPick && m.role === "admin" && (
-          <button className="btn btn-secondary" onClick={() => onPick(m.team.id)} style={{ fontSize: 12 }}>
+          <button className="btn btn-secondary"
+                  onClick={(e) => { e.stopPropagation(); onPick(m.team.id); }}
+                  style={{ fontSize: 12 }}>
             + Reminder
           </button>
         )}
-        <button className="btn btn-secondary" disabled={busy} onClick={leave} style={{ fontSize: 12 }}>
-          {busy ? "…" : "Leave"}
+        <button className="btn btn-secondary"
+                onClick={(e) => { e.stopPropagation(); onOpen(); }}
+                style={{ fontSize: 12 }}>
+          Manage
         </button>
       </div>
     </div>
