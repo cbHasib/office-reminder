@@ -25,24 +25,48 @@ function buildRrule(rec: Recurrence, customDays: string[]): string | null {
 interface AdminTeam { id: string; name: string; }
 
 export default function NewReminderModal({
-  userId, prefillTeamId, onClose,
+  userId, prefillTeamId, editReminder, onClose,
 }: {
   userId: string;
   prefillTeamId?: string;
+  editReminder?: { id: string; title: string; description: string; scheduled_at: string; rrule: string | null; advance_minutes: number; team_id: string };
   onClose: () => void;
 }) {
   const [teams, setTeams] = useState<AdminTeam[]>([]);
-  const [teamId, setTeamId] = useState<string>(prefillTeamId ?? "");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [teamId, setTeamId] = useState<string>(editReminder?.team_id ?? prefillTeamId ?? "");
+  const [title, setTitle] = useState(editReminder?.title ?? "");
+  const [description, setDescription] = useState(editReminder?.description ?? "");
   const [scheduledAt, setScheduledAt] = useState<string>(() => {
+    if (editReminder) {
+      const d = new Date(editReminder.scheduled_at);
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+    }
     const d = new Date(Date.now() + 60 * 60 * 1000);
     d.setSeconds(0, 0);
     return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
   });
-  const [advance, setAdvance] = useState(DEFAULT_ADVANCE_MINUTES);
-  const [recurrence, setRecurrence] = useState<Recurrence>("none");
-  const [customDays, setCustomDays] = useState<string[]>([]);
+  const [advance, setAdvance] = useState(editReminder?.advance_minutes ?? DEFAULT_ADVANCE_MINUTES);
+  
+  const [recurrence, setRecurrence] = useState<Recurrence>(() => {
+    const r = editReminder?.rrule;
+    if (!r) return "none";
+    if (r === "FREQ=DAILY") return "daily";
+    if (r === "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR") return "weekdays";
+    if (r === "FREQ=WEEKLY") return "weekly";
+    if (r.startsWith("FREQ=WEEKLY;BYDAY=")) return "custom";
+    return "none";
+  });
+
+  const [customDays, setCustomDays] = useState<string[]>(() => {
+    const r = editReminder?.rrule;
+    if (!r) return [];
+    if (r.startsWith("FREQ=WEEKLY;BYDAY=")) {
+      const daysStr = r.substring("FREQ=WEEKLY;BYDAY=".length);
+      return daysStr.split(",").filter(Boolean);
+    }
+    return [];
+  });
+
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
@@ -56,9 +80,9 @@ export default function NewReminderModal({
         .eq("role", "admin");
       const adminTeams = (data ?? []).map((r: any) => r.team).filter(Boolean);
       setTeams(adminTeams);
-      if (!prefillTeamId && adminTeams.length > 0) setTeamId(adminTeams[0].id);
+      if (!editReminder && !prefillTeamId && adminTeams.length > 0) setTeamId(adminTeams[0].id);
     })();
-  }, [userId, prefillTeamId]);
+  }, [userId, prefillTeamId, editReminder]);
 
   const rrulePreview = useMemo(
     () => buildRrule(recurrence, customDays),
@@ -79,18 +103,33 @@ export default function NewReminderModal({
     setSaving(true); setErr(null);
     try {
       const scheduledDate = new Date(scheduledAt);
-      const { error } = await supabase.from("reminders").insert({
-        team_id: teamId,
-        title: title.trim(),
-        description: description.trim(),
-        scheduled_at: scheduledDate.toISOString(),
-        rrule: buildRrule(recurrence, customDays),
-        advance_minutes: advance,
-        audience: "all",
-        target_user_ids: [],
-        created_by: userId,
-      });
-      if (error) { setErr(error.message); return; }
+      if (editReminder) {
+        const { error } = await supabase
+          .from("reminders")
+          .update({
+            team_id: teamId,
+            title: title.trim(),
+            description: description.trim(),
+            scheduled_at: scheduledDate.toISOString(),
+            rrule: buildRrule(recurrence, customDays),
+            advance_minutes: advance,
+          })
+          .eq("id", editReminder.id);
+        if (error) { setErr(error.message); return; }
+      } else {
+        const { error } = await supabase.from("reminders").insert({
+          team_id: teamId,
+          title: title.trim(),
+          description: description.trim(),
+          scheduled_at: scheduledDate.toISOString(),
+          rrule: buildRrule(recurrence, customDays),
+          advance_minutes: advance,
+          audience: "all",
+          target_user_ids: [],
+          created_by: userId,
+        });
+        if (error) { setErr(error.message); return; }
+      }
       onClose();
     } finally {
       setSaving(false);
@@ -100,7 +139,7 @@ export default function NewReminderModal({
 
   if (teams.length === 0) {
     return (
-      <ModalShell onClose={onClose} title="New reminder">
+      <ModalShell onClose={onClose} title={editReminder ? "Edit reminder" : "New reminder"}>
         <p className="muted">
           You aren't an admin of any team yet. Create a team first (Teams tab) — admins
           can create reminders. If you're a member, ask the team admin.
@@ -113,7 +152,7 @@ export default function NewReminderModal({
   }
 
   return (
-    <ModalShell onClose={onClose} title="New reminder">
+    <ModalShell onClose={onClose} title={editReminder ? "Edit reminder" : "New reminder"}>
       <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
         <div>
           <label className="label">Team</label>
@@ -183,7 +222,7 @@ export default function NewReminderModal({
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" disabled={saving || customInvalid}>
-            {saving ? "Saving…" : "Create reminder"}
+            {saving ? "Saving…" : (editReminder ? "Save changes" : "Create reminder")}
           </button>
         </div>
       </form>

@@ -5,8 +5,8 @@ import { nextOccurrence } from "@/lib/scheduler";
 import { externalLink } from "@/lib/openExternal";
 
 export default function HomeTab({
-  reminders, settings,
-}: { reminders: Reminder[]; settings: UserSettings | null }) {
+  reminders, settings, onManageTeams,
+}: { reminders: Reminder[]; settings: UserSettings | null; onManageTeams?: () => void }) {
   const upcoming = useMemo(() => {
     const now = new Date();
     return reminders
@@ -25,12 +25,12 @@ export default function HomeTab({
             The next {Math.min(8, upcoming.length || 8)} reminders across all your teams.
           </p>
         </div>
-        <a {...externalLink(WEB_DASHBOARD_URL)} className="btn btn-secondary" style={{ textDecoration: "none" }}>
+        <button onClick={onManageTeams} className="btn btn-secondary">
           Manage teams
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginLeft: 4 }}>
             <path d="M4 2h6v6M10 2L4 8M2 4v6h6" />
           </svg>
-        </a>
+        </button>
       </header>
 
       {upcoming.length === 0 ? (
@@ -38,9 +38,9 @@ export default function HomeTab({
           <p style={{ fontWeight: 500, margin: 0 }}>You're all clear</p>
           <p className="muted" style={{ marginTop: 4 }}>
             Add reminders in the{" "}
-            <a className="text-brand" {...externalLink(WEB_DASHBOARD_URL)} style={{ textDecoration: "underline" }}>
-              web dashboard
-            </a>{" "}
+            <button className="text-brand" onClick={onManageTeams} style={{ textDecoration: "underline", background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }}>
+              teams dashboard
+            </button>{" "}
             — they'll show up here automatically.
           </p>
         </div>

@@ -14,10 +14,11 @@ interface Membership { role: "admin" | "member"; team: TeamLite; }
 interface MyRequest { id: string; status: string; created_at: string; team: TeamLite; }
 
 export default function TeamsTab({
-  session, onPick,
+  session, onPick, onEdit,
 }: {
   session: Session;
   onPick?: (teamId: string) => void;
+  onEdit?: (reminder: any) => void;
 }) {
   const userId = session.user.id;
   const [teams, setTeams] = useState<Membership[]>([]);
@@ -63,6 +64,7 @@ export default function TeamsTab({
         session={session}
         onBack={() => { setOpenTeamId(null); refresh(); }}
         onNewReminder={(id) => onPick?.(id)}
+        onEditReminder={(r) => onEdit?.({ ...r, team_id: openTeamId })}
       />
     );
   }

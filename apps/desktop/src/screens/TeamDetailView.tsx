@@ -35,12 +35,13 @@ interface ReminderRow {
 }
 
 export default function TeamDetailView({
-  teamId, session, onBack, onNewReminder,
+  teamId, session, onBack, onNewReminder, onEditReminder,
 }: {
   teamId: string;
   session: Session;
   onBack: () => void;
   onNewReminder: (teamId: string) => void;
+  onEditReminder?: (reminder: any) => void;
 }) {
   const [team, setTeam] = useState<TeamFull | null>(null);
   const [members, setMembers] = useState<MemberRow[]>([]);
@@ -158,7 +159,7 @@ export default function TeamDetailView({
           </button>
         )}
       </p>
-      <RemindersPanel reminders={reminders} canEdit={isAdmin} onChange={refresh} />
+      <RemindersPanel reminders={reminders} canEdit={isAdmin} onChange={refresh} onEdit={onEditReminder} />
 
       {isAdmin ? (
         <>
@@ -339,8 +340,8 @@ function MembersPanel({
 }
 
 function RemindersPanel({
-  reminders, canEdit, onChange,
-}: { reminders: ReminderRow[]; canEdit: boolean; onChange: () => void }) {
+  reminders, canEdit, onChange, onEdit,
+}: { reminders: ReminderRow[]; canEdit: boolean; onChange: () => void; onEdit?: (reminder: ReminderRow) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
 
   async function del(id: string) {
@@ -370,9 +371,16 @@ function RemindersPanel({
             {r.description && <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>{r.description}</p>}
           </div>
           {canEdit && (
-            <button className="btn btn-secondary" disabled={busy === r.id}
-                    onClick={() => del(r.id)}
-                    style={{ fontSize: 12, color: "rgb(var(--danger))" }}>Delete</button>
+            <div style={{ display: "flex", gap: 6 }}>
+              {onEdit && (
+                <button className="btn btn-secondary"
+                        onClick={() => onEdit(r)}
+                        style={{ fontSize: 12 }}>Edit</button>
+              )}
+              <button className="btn btn-secondary" disabled={busy === r.id}
+                      onClick={() => del(r.id)}
+                      style={{ fontSize: 12, color: "rgb(var(--danger))" }}>Delete</button>
+            </div>
           )}
         </div>
       ))}

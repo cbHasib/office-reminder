@@ -25,6 +25,7 @@ export default function Layout({ session }: { session: Session }) {
   const { settings, update } = useUserSettings(userId);
   const [showNewReminder, setShowNewReminder] = useState(false);
   const [prefillTeamId, setPrefillTeamId] = useState<string | undefined>();
+  const [editReminder, setEditReminder] = useState<any | undefined>();
   const firstSyncDone = useRef(false);
 
   useEffect(() => {
@@ -78,7 +79,14 @@ export default function Layout({ session }: { session: Session }) {
   useReminderScheduler({ reminders, settings, userId });
 
   function openNewReminder(teamId?: string) {
+    setEditReminder(undefined);
     setPrefillTeamId(teamId);
+    setShowNewReminder(true);
+  }
+
+  function openEditReminder(reminder: any) {
+    setEditReminder(reminder);
+    setPrefillTeamId(undefined);
     setShowNewReminder(true);
   }
 
@@ -123,8 +131,8 @@ export default function Layout({ session }: { session: Session }) {
 
       <main className="content">
         <UpdateBanner />
-        {tab === "home"     && <HomeTab     reminders={reminders} settings={settings} />}
-        {tab === "teams"    && <TeamsTab    session={session} onPick={openNewReminder} />}
+        {tab === "home"     && <HomeTab     reminders={reminders} settings={settings} onManageTeams={() => setTab("teams")} />}
+        {tab === "teams"    && <TeamsTab    session={session} onPick={openNewReminder} onEdit={openEditReminder} />}
         {tab === "settings" && <SettingsTab settings={settings} onUpdate={update} />}
         {tab === "account"  && <AccountTab  session={session} />}
       </main>
@@ -133,6 +141,7 @@ export default function Layout({ session }: { session: Session }) {
         <NewReminderModal
           userId={userId}
           prefillTeamId={prefillTeamId}
+          editReminder={editReminder}
           onClose={() => setShowNewReminder(false)}
         />
       )}
