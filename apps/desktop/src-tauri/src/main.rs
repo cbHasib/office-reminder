@@ -282,9 +282,22 @@ fn main() {
 
                 use tauri::menu::{MenuBuilder, SubmenuBuilder};
 
+                use tauri::menu::AboutMetadata;
+
+                let about_metadata = AboutMetadata {
+                    name: Some("Office Reminder".to_string()),
+                    version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                    copyright: Some("© 2026 Hasib & Antigravity".to_string()),
+                    authors: Some(vec!["cbHasib".to_string(), "Antigravity".to_string()]),
+                    website: Some("https://github.com/cbHasib/office-reminder".to_string()),
+                    website_label: Some("GitHub Repository".to_string()),
+                    comments: Some("A premium, unthrottled desktop reminder utility built by Hasib and designed by Antigravity to help you stay focused and never miss important events.".to_string()),
+                    ..Default::default()
+                };
+
                 // Create custom App submenu (no Quit!)
                 let app_submenu = SubmenuBuilder::new(app, "Office Reminder")
-                    .about(None)
+                    .about(Some(about_metadata))
                     .separator()
                     .hide()
                     .hide_others()
@@ -345,7 +358,7 @@ fn main() {
                                 *quitting = true;
                             }
                         }
-                        app.exit(0);
+                        std::process::exit(0);
                     }
                     _ => {}
                 })
