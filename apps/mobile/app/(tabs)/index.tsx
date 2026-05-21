@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -18,8 +17,10 @@ import {
   isSilencedForUser,
   syncMobileScheduler,
 } from "../../src/lib/notificationScheduler";
+import { syncReminderLiveActivity } from "../../src/lib/reminderLiveActivity";
 import type { Reminder } from "@office-reminder/shared";
 import { Bell, RefreshCw, AlertCircle, Clock, Calendar } from "lucide-react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface DisplayReminder {
   id: string; // reminderId@occurrenceISO
@@ -182,6 +183,41 @@ export default function HomeScreen() {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, [nearestEvent]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    async function syncActiveCountdown() {
+      if (!nearestEvent) {
+        await syncReminderLiveActivity(null);
+        return;
+      }
+
+      const now = Date.now();
+      const fireTime = nearestEvent.fireAt.getTime();
+      const eventTime = nearestEvent.occurrence.getTime();
+
+      if (now >= fireTime && now <= eventTime) {
+        await syncReminderLiveActivity({
+          reminderId: nearestEvent.reminderId,
+          title: nearestEvent.title,
+          description: nearestEvent.description,
+          startsAtISO: nearestEvent.occurrence.toISOString(),
+          warningAtISO: nearestEvent.fireAt.toISOString(),
+          leadMinutes: nearestEvent.leadMinutes,
+        });
+      } else if (now > eventTime && !disposed) {
+        await syncReminderLiveActivity(null);
+      }
+    }
+
+    syncActiveCountdown();
+    const timer = setInterval(syncActiveCountdown, 15_000);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
   }, [nearestEvent]);
 
   // Run manual sync scheduler

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
@@ -35,6 +34,7 @@ import {
   CheckSquare,
 } from "lucide-react-native";
 import type { Reminder, Team, TeamMember, User, JoinRequest } from "@office-reminder/shared";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const WEEKDAYS = [
   { label: "Su", value: "SU" },

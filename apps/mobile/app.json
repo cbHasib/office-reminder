@@ -10,7 +10,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.officereminder.mobile",
       "infoPlist": {
-        "UIBackgroundModes": ["fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -43,9 +46,35 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#0F0F12",
-          "sounds": [],
+          "sounds": [
+            "./assets/sounds/chime.wav",
+            "./assets/sounds/bell.wav",
+            "./assets/sounds/ding.wav",
+            "./assets/sounds/soft.wav",
+            "./assets/sounds/alert.wav"
+          ],
           "androidMode": "default",
           "androidCollapsedTitle": "Office Reminder"
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "enablePushNotifications": true,
+          "frequentUpdates": true,
+          "widgets": [
+            {
+              "name": "ReminderCountdownActivity",
+              "displayName": "Reminder Countdown",
+              "description": "Shows a live countdown for the next office reminder.",
+              "contentMarginsDisabled": false,
+              "supportedFamilies": [
+                "accessoryCircular",
+                "accessoryRectangular",
+                "accessoryInline"
+              ]
+            }
+          ]
         }
       ]
     ],

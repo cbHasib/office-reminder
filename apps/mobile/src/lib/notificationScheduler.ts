@@ -1,7 +1,17 @@
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import { Platform } from "react-native";
 import { rrulestr } from "rrule";
-import type { Reminder, UserSettings } from "@office-reminder/shared";
+import type { Reminder, SoundName, UserSettings } from "@office-reminder/shared";
 import { supabase } from "./supabase";
+import { syncReminderLiveActivity, type ReminderLiveActivityPayload } from "./reminderLiveActivity";
+
+const NOTIFICATION_COLOR = "#0F0F12";
+const SILENT_CHANNEL_ID = "office-reminder-silent";
+const DEFAULT_SOUND_CHANNEL_ID = "office-reminder-default-sound";
+const SOUND_CHANNEL_PREFIX = "office-reminder-sound";
+const SOUND_NAMES: SoundName[] = ["chime", "bell", "ding", "soft", "alert"];
+type NotificationSound = `${SoundName}.wav` | "default" | false;
 
 // Setup standard expo notification handler
 Notifications.setNotificationHandler({
@@ -31,6 +41,35 @@ export function isSilencedForUser(r: Reminder, settings: UserSettings | null, us
   if (settings?.muted_reminder_ids?.includes(r.id)) return true;
   if (r.audience === "specific" && !r.target_user_ids.includes(userId)) return true;
   return false;
+}
+
+function notificationSoundName(settings: UserSettings | null): NotificationSound {
+  if (!settings?.sound_enabled) return false;
+  if (Constants.appOwnership === "expo") return "default";
+  const soundName = SOUND_NAMES.includes(settings.sound_name) ? settings.sound_name : "chime";
+  return `${soundName}.wav`;
+}
+
+async function ensureNotificationChannel(soundFile: NotificationSound): Promise<string | undefined> {
+  if (Platform.OS !== "android") return undefined;
+
+  const channelId = soundFile
+    ? soundFile === "default"
+      ? DEFAULT_SOUND_CHANNEL_ID
+      : `${SOUND_CHANNEL_PREFIX}-${soundFile.replace(".wav", "")}`
+    : SILENT_CHANNEL_ID;
+
+  await Notifications.setNotificationChannelAsync(channelId, {
+    name: soundFile && soundFile !== "default"
+      ? `Office Reminder (${soundFile.replace(".wav", "")})`
+      : "Office Reminder",
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: soundFile || null,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: "#818CF8",
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+  });
+  return channelId;
 }
 
 /** Expands recurring reminders or resolves a standard one-off date */
@@ -80,6 +119,7 @@ export async function syncMobileScheduler(userId: string): Promise<number> {
 
     if (!memberData || memberData.length === 0) {
       await Notifications.cancelAllScheduledNotificationsAsync();
+      await syncReminderLiveActivity(null);
       return 0;
     }
 
@@ -93,6 +133,7 @@ export async function syncMobileScheduler(userId: string): Promise<number> {
 
     if (!remindersData || remindersData.length === 0) {
       await Notifications.cancelAllScheduledNotificationsAsync();
+      await syncReminderLiveActivity(null);
       return 0;
     }
 
@@ -106,6 +147,7 @@ export async function syncMobileScheduler(userId: string): Promise<number> {
     const end = new Date(now.getTime() + 7 * 24 * 60 * 60_000); // 7-day window
 
     let scheduledCount = 0;
+    let nearestActivity: ReminderLiveActivityPayload | null = null;
 
     for (const r of reminders) {
       if (isSilencedForUser(r, settings, userId)) continue;
@@ -116,36 +158,65 @@ export async function syncMobileScheduler(userId: string): Promise<number> {
       for (const occ of occurrences) {
         const eventAtMs = occ.getTime();
         const fireAtMs = eventAtMs - lead * 60_000;
-        
+
+        if (eventAtMs > now.getTime()) {
+          const liveActivityPayload = {
+            reminderId: r.id,
+            title: r.title,
+            description: r.description || "",
+            startsAtISO: occ.toISOString(),
+            warningAtISO: new Date(Math.max(now.getTime(), fireAtMs)).toISOString(),
+            leadMinutes: lead,
+          };
+          if (
+            !nearestActivity ||
+            eventAtMs < new Date(nearestActivity.startsAtISO).getTime()
+          ) {
+            nearestActivity = liveActivityPayload;
+          }
+        }
+
         // Skip occurrences where warning lead time has already passed
         if (fireAtMs <= now.getTime()) continue;
 
         const fireAtDate = new Date(fireAtMs);
-        const soundEnabled = settings ? settings.sound_enabled : false;
-        const soundName = settings ? settings.sound_name : "chime";
+        const sound = notificationSoundName(settings);
+        const channelId = await ensureNotificationChannel(sound);
 
         // Schedule local push notification at calculated offset
         await Notifications.scheduleNotificationAsync({
           content: {
             title: r.title,
-            body: r.description || `Office Event starts in ${lead} minutes!`,
-            // Fallback natively to default system alert sounds during local development
-            // sound: soundEnabled ? `${soundName}.wav` : undefined,
+            subtitle: `${lead} minute countdown`,
+            body: r.description || `Office event starts in ${lead} minutes.`,
+            sound,
+            ...(Platform.OS === "android"
+              ? {
+                  priority: Notifications.AndroidNotificationPriority.HIGH,
+                  color: NOTIFICATION_COLOR,
+                  sticky: true,
+                  autoDismiss: false,
+                }
+              : {}),
             data: {
               reminderId: r.id,
               eventAtISO: occ.toISOString(),
+              warningAtISO: fireAtDate.toISOString(),
+              leadMinutes: lead,
             },
           },
           trigger: {
             date: fireAtDate,
             type: Notifications.SchedulableTriggerInputTypes.DATE,
-            channelId: 'default',
+            ...(channelId ? { channelId } : {}),
           },
         });
 
         scheduledCount++;
       }
     }
+
+    await syncReminderLiveActivity(nearestActivity);
 
     // eslint-disable-next-line no-console
     console.log(`[Notification Scheduler] Successfully scheduled ${scheduledCount} alerts for the next 7 days.`);
