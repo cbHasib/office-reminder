@@ -277,7 +277,36 @@ fn main() {
         .setup(|app| {
             // Set macOS activation policy to Accessory to hide the Dock icon and run purely in system tray
             #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            {
+                app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+                use tauri::menu::{MenuBuilder, SubmenuBuilder};
+
+                // Create custom App submenu (no Quit!)
+                let app_submenu = SubmenuBuilder::new(app, "Office Reminder")
+                    .about(None)
+                    .separator()
+                    .hide()
+                    .hide_others()
+                    .build()?;
+
+                // Create standard Edit submenu so Copy/Paste still works
+                let edit_submenu = SubmenuBuilder::new(app, "Edit")
+                    .undo()
+                    .redo()
+                    .separator()
+                    .cut()
+                    .copy()
+                    .paste()
+                    .select_all()
+                    .build()?;
+
+                let menu = MenuBuilder::new(app)
+                    .items(&[&app_submenu, &edit_submenu])
+                    .build()?;
+
+                app.set_menu(menu)?;
+            }
 
             // Register updater plugin
             #[cfg(desktop)]
