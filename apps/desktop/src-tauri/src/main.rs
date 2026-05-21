@@ -373,7 +373,7 @@ fn main() {
                             let visible = win.is_visible().unwrap_or(false);
                             if visible {
                                 println!("[Tray] Left-clicked tray icon. Hiding main window.");
-                                let _ = win.hide();
+                                hide_main_window(app);
                             } else {
                                 println!("[Tray] Left-clicked tray icon. Showing main window.");
                                 show_main_window(app);
@@ -390,7 +390,7 @@ fn main() {
                 if window.label() == "main" {
                     println!("[Window] Close requested on main window. Preventing close and hiding window to tray.");
                     api.prevent_close();
-                    let _ = window.hide();
+                    hide_main_window(window.app_handle());
                 }
             }
         })
@@ -412,9 +412,7 @@ fn handle_run_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>, event: RunEven
                 if !quitting {
                     api.prevent_exit();
                     println!("[App Lifecycle] Exit requested (Cmd+Q or similar). Preventing exit and hiding main window.");
-                    if let Some(win) = app.get_webview_window("main") {
-                        let _ = win.hide();
-                    }
+                    hide_main_window(app);
                 } else {
                     println!("[App Lifecycle] Exit requested and is_quitting is true. Proceeding with clean termination.");
                 }
@@ -432,6 +430,9 @@ fn handle_run_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>, event: RunEven
 }
 
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.show();
         let _ = win.unminimize();
@@ -439,5 +440,14 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         println!("[Window] Main window focused and visible.");
     } else {
         eprintln!("[Window Error] show_main_window called, but main window was not found.");
+    }
+}
+
+fn hide_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.hide();
+        #[cfg(target_os = "macos")]
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+        println!("[Window] Main window hidden, accessory mode active.");
     }
 }
