@@ -24,11 +24,49 @@ export default function AccountTab({ session }: { session: Session }) {
 
   const [checking, setChecking] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null | "none">(null);
+  const [updating, setUpdating] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState("");
+
   async function checkUpdates() {
     setChecking(true);
     const u = await checkForUpdate({ ignoreDismissed: true });
     setChecking(false);
     setUpdateInfo(u ?? "none");
+  }
+
+  async function handleAutoUpdate() {
+    if (!updateInfo || updateInfo === "none") return;
+    setUpdating(true);
+    setUpdateStatus("Initiating update...");
+    try {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+
+      setUpdateStatus("Verifying signatures...");
+      const update = await check();
+
+      if (update && update.available) {
+        setUpdateStatus("Downloading and installing in background...");
+        await update.downloadAndInstall();
+        setUpdateStatus("Applying update and restarting...");
+        await relaunch();
+      } else {
+        setUpdateStatus("Redirecting to download page...");
+        await openExternal(WEB_DOWNLOAD_URL);
+        setUpdating(false);
+      }
+    } catch (err) {
+      console.warn("Native updater unconfigured or failed, falling back to manual download:", err);
+      setUpdateStatus("Opening download page...");
+      try {
+        await openExternal(WEB_DOWNLOAD_URL);
+      } catch (openErr) {
+        console.error("Manual browser download redirect failed:", openErr);
+      }
+      setTimeout(() => {
+        setUpdating(false);
+      }, 2000);
+    }
   }
 
   useEffect(() => {
@@ -153,20 +191,46 @@ export default function AccountTab({ session }: { session: Session }) {
           </p>
         )}
         {updateInfo && updateInfo !== "none" && (
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            gap: 10, padding: "8px 10px", marginBottom: 12, borderRadius: 8,
-            background: "rgb(var(--brand) / 0.10)",
-            border: "1px solid rgb(var(--brand) / 0.35)",
-          }}>
-            <span style={{ fontSize: 12 }}>
-              v{updateInfo.latest} is available.
-            </span>
-            <button className="btn btn-primary" style={{ fontSize: 12, padding: "5px 10px" }}
-                    onClick={() => openExternal(WEB_DOWNLOAD_URL)}>
-              Download
-            </button>
-          </div>
+          <>
+            <div style={{
+              display: "flex", flexDirection: "column",
+              gap: 8, padding: "10px 12px", marginBottom: 12, borderRadius: 8,
+              background: "rgb(var(--brand) / 0.10)",
+              border: "1px solid rgb(var(--brand) / 0.35)",
+              transition: "all 0.3s ease",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "rgb(var(--fg))" }}>
+                  {updating ? `Updating to v${updateInfo.latest}` : `v${updateInfo.latest} is available.`}
+                </span>
+                {!updating ? (
+                  <button className="btn btn-primary" style={{ fontSize: 12, padding: "5px 12px" }}
+                          onClick={handleAutoUpdate}>
+                    Update Now
+                  </button>
+                ) : (
+                  <div style={{
+                    width: 14, height: 14, borderRadius: "50%",
+                    border: "2px solid rgb(var(--brand) / 0.3)",
+                    borderTopColor: "rgb(var(--brand))",
+                    animation: "spin 1s linear infinite",
+                    flexShrink: 0
+                  }} />
+                )}
+              </div>
+              {updating && (
+                <p className="muted" style={{ margin: 0, fontSize: 11 }}>
+                  {updateStatus}
+                </p>
+              )}
+            </div>
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
+          </>
         )}
 
         <AboutRow label="Web app" value={WEB_URL.replace("https://", "")} href={WEB_URL} />
