@@ -13,3 +13,4 @@ target/
 .vercel/
 src-tauri/target/
 src-tauri/Cargo.lock
+.expo/

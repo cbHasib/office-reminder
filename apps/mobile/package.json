@@ -1,0 +1,41 @@
+{
+  "name": "mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "ts:check": "tsc"
+  },
+  "dependencies": {
+    "@expo/ui": "latest",
+    "@office-reminder/shared": "workspace:*",
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "expo": "^56.0.0",
+    "expo-audio": "*",
+    "expo-background-fetch": "*",
+    "expo-constants": "*",
+    "expo-linking": "*",
+    "expo-notifications": "*",
+    "expo-router": "*",
+    "expo-splash-screen": "~56.0.9",
+    "expo-status-bar": "*",
+    "expo-system-ui": "*",
+    "expo-task-manager": "*",
+    "lucide-react-native": "^0.453.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "^5.7.0",
+    "react-native-screens": "^4.25.1",
+    "rrule": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.14",
+    "typescript": "^6.0.3"
+  }
+}
