@@ -39,6 +39,7 @@ pub struct AppState {
     pub active_events: Mutex<Vec<ActiveEvent>>,
     pub current_overlay: Mutex<Option<ActiveEvent>>,
     pub spawned_event_ids: Mutex<HashSet<String>>,
+    pub is_quitting: Mutex<bool>,
 }
 
 fn now_ms() -> i64 {
@@ -288,6 +289,7 @@ fn main() {
                 active_events: Mutex::new(cached_events),
                 current_overlay: Mutex::new(None),
                 spawned_event_ids: Mutex::new(HashSet::new()),
+                is_quitting: Mutex::new(false),
             });
 
             // Spawn native timer loop
@@ -309,6 +311,11 @@ fn main() {
                     }
                     "quit" => {
                         println!("[Tray] Quit menu item clicked. Exiting app cleanly.");
+                        if let Some(state) = app.try_state::<AppState>() {
+                            if let Ok(mut quitting) = state.is_quitting.lock() {
+                                *quitting = true;
+                            }
+                        }
                         app.exit(0);
                     }
                     _ => {}
@@ -355,9 +362,23 @@ fn main() {
     app.run(|app_handle, event| handle_run_event(app_handle, event));
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
 fn handle_run_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>, event: RunEvent) {
     match event {
+        RunEvent::ExitRequested { api, .. } => {
+            if let Some(state) = app.try_state::<AppState>() {
+                let quitting = state.is_quitting.lock().map(|q| *q).unwrap_or(false);
+                if !quitting {
+                    api.prevent_exit();
+                    println!("[App Lifecycle] Exit requested (Cmd+Q or similar). Preventing exit and hiding main window.");
+                    if let Some(win) = app.get_webview_window("main") {
+                        let _ = win.hide();
+                    }
+                } else {
+                    println!("[App Lifecycle] Exit requested and is_quitting is true. Proceeding with clean termination.");
+                }
+            }
+        }
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         RunEvent::Reopen { has_visible_windows, .. } => {
             if !has_visible_windows {
                 println!("[App Lifecycle] Reopen requested. Showing main window.");
@@ -366,11 +387,6 @@ fn handle_run_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>, event: RunEven
         }
         _ => {}
     }
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
-fn handle_run_event<R: tauri::Runtime>(_app: &tauri::AppHandle<R>, _event: RunEvent) {
-    // Let default native run event execution continue
 }
 
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {

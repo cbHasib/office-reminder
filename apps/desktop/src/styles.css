@@ -254,24 +254,41 @@ input, button, select, textarea { font: inherit; color: inherit; }
   pointer-events: none;
   z-index: 0;
 }
-/* Animated accent border: a thin pulsing ring in the accent color. The
-   color is driven from inline style on the parent (var --accent), so the
-   border interpolates along with the bg slate→amber→red. */
+/* Animated accent border: a thicker, glowing, highly focusable border.
+   The color is driven from inline style on the parent (var --accent), so the
+   border interpolates along with the bg slate→amber→red.
+   Uses a deep breathing inner-glow ripple to prevent OS window clipping. */
 .overlay-root::after {
   content: "";
   position: absolute; inset: 0;
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
-  border: 1.5px solid var(--accent, rgb(148 163 184 / 0.9));
-  box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.06) inset,
-    0 0 18px -2px var(--accent, rgb(148 163 184 / 0.5));
-  animation: overlay-pulse 2.2s ease-in-out infinite;
+  border: 3.5px solid var(--accent, rgb(148 163 184 / 0.9));
+  animation: overlay-pulse 2.0s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 @keyframes overlay-pulse {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.005); }
+  0% {
+    border-color: var(--accent, rgb(148 163 184 / 0.8));
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.1) inset,
+      0 0 6px var(--accent, rgb(148 163 184 / 0.4)),
+      0 0 10px -2px var(--accent, rgb(148 163 184 / 0.3)) inset;
+  }
+  50% {
+    border-color: rgb(255 255 255 / 0.9);
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.2) inset,
+      0 0 12px var(--accent, rgb(148 163 184 / 0.7)),
+      0 0 24px -1px var(--accent, rgb(148 163 184 / 0.6)) inset;
+  }
+  100% {
+    border-color: var(--accent, rgb(148 163 184 / 0.8));
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.1) inset,
+      0 0 6px var(--accent, rgb(148 163 184 / 0.4)),
+      0 0 10px -2px var(--accent, rgb(148 163 184 / 0.3)) inset;
+  }
 }
 .overlay-root > * { position: relative; z-index: 1; }
 @keyframes overlay-in {
