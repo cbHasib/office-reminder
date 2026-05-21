@@ -1,20 +1,56 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { closeMyself, type OverlayPayload } from "@/lib/overlayController";
 import { OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES } from "@office-reminder/shared";
 import { playSound } from "@/lib/sounds";
-
-function readPayload(): OverlayPayload | null {
-  try {
-    const raw = decodeURIComponent(window.location.hash.replace(/^#/, ""));
-    return JSON.parse(raw) as OverlayPayload;
-  } catch { return null; }
-}
+import { invoke } from "@tauri-apps/api/core";
 
 export default function OverlayWindow() {
-  const payload = useMemo(readPayload, []);
-  if (!payload) {
-    return <div className="overlay-root"><p className="overlay-title">Missing payload</p></div>;
+  const [payload, setPayload] = useState<OverlayPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // 1. Try URL hash first (backwards compatibility and quick JS development)
+    try {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (hash) {
+        const raw = decodeURIComponent(hash);
+        const parsed = JSON.parse(raw) as OverlayPayload;
+        setPayload(parsed);
+        setLoading(false);
+        return;
+      }
+    } catch (e) {
+      console.warn("Failed to parse hash payload, falling back to IPC:", e);
+    }
+
+    // 2. Fall back to IPC command
+    invoke<OverlayPayload>("get_overlay_payload")
+      .then((p) => {
+        setPayload(p);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load overlay payload:", err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="overlay-root" style={{ background: "rgba(15, 23, 42, 0.95)" }}>
+        <p className="overlay-title">Loading…</p>
+      </div>
+    );
   }
+
+  if (!payload) {
+    return (
+      <div className="overlay-root" style={{ background: "rgba(15, 23, 42, 0.95)" }}>
+        <p className="overlay-title">Missing payload</p>
+      </div>
+    );
+  }
+
   return <OverlayContent payload={payload} />;
 }
 

@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { Reminder, UserSettings } from "@office-reminder/shared";
-import { effectiveAdvanceMinutes, isSilencedForUser, nextOccurrence } from "./scheduler";
-import { openOverlay, isOverlayOpen } from "./overlayController";
+import { OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES } from "@office-reminder/shared";
+import { effectiveAdvanceMinutes, isSilencedForUser, getUpcomingOccurrences } from "./scheduler";
+import { invoke } from "@tauri-apps/api/core";
 
 interface Params {
   reminders: Reminder[];
@@ -9,76 +10,80 @@ interface Params {
   userId: string;
 }
 
+interface ActiveEvent {
+  id: string;
+  reminderId: string;
+  title: string;
+  description: string;
+  eventAtMs: number;
+  fireAtMs: number;
+  closeAtMs: number;
+  eventAtISO: string;
+  leadMinutes: number;
+  dismissibleDuringCountdown: boolean;
+  soundEnabled: boolean;
+  soundName: string;
+  theme: string;
+  overlayPosition: string;
+}
+
 export function useReminderScheduler({ reminders, settings, userId }: Params) {
-  // Persistent across renders. Cleared once a key is older than 24h
-  // so the cache doesn't grow unbounded.
-  const firedKeys = useRef<Map<string, number>>(new Map());
-  // Guards against parallel tick processing.
-  const ticking = useRef(false);
-
   useEffect(() => {
-    let cancelled = false;
+    if (!settings) return;
 
-    async function tick() {
-      if (cancelled || ticking.current || !settings) return;
-      ticking.current = true;
-
+    async function syncScheduler() {
+      if (!settings) return;
+      const s = settings;
       try {
-        // GC old keys
-        const cutoff = Date.now() - 24 * 60 * 60_000;
-        for (const [k, t] of firedKeys.current) {
-          if (t < cutoff) firedKeys.current.delete(k);
-        }
-
         const now = new Date();
-        // Look at each reminder; only one overlay can show at a time.
+        const start = new Date(now.getTime() - OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES * 60_000);
+        const end = new Date(now.getTime() + 7 * 24 * 60 * 60_000); // 7 days rolling window
+
+        const events: ActiveEvent[] = [];
+
         for (const r of reminders) {
-          if (isSilencedForUser(r, settings, userId)) continue;
-          const next = nextOccurrence(r, now);
-          if (!next) continue;
+          if (isSilencedForUser(r, s, userId)) continue;
 
-          const lead = effectiveAdvanceMinutes(r, settings);
-          const fireAt = new Date(next.getTime() - lead * 60_000);
-          if (now < fireAt || now > next) continue;
+          const occurrences = getUpcomingOccurrences(r, start, end);
+          const lead = effectiveAdvanceMinutes(r, s);
 
-          const key = `${r.id}@${next.toISOString()}`;
-          if (firedKeys.current.has(key)) continue;
+          for (const occ of occurrences) {
+            const eventAtMs = occ.getTime();
+            const fireAtMs = eventAtMs - lead * 60_000;
+            const closeAtMs = eventAtMs + OVERLAY_AUTO_CLOSE_AFTER_FIRE_MINUTES * 60_000;
 
-          // Real check, not just a local boolean — survives HMR / strict mode.
-          if (await isOverlayOpen()) continue;
-
-          firedKeys.current.set(key, Date.now());
-          try {
-            await openOverlay(
-              {
-                reminderId: r.id,
-                title: r.title,
-                description: r.description,
-                eventAtISO: next.toISOString(),
-                leadMinutes: lead,
-                dismissibleDuringCountdown: settings.dismissible,
-                soundEnabled: settings.sound_enabled,
-                soundName: settings.sound_name,
-                theme: settings.theme,
-              },
-              settings.overlay_position,
-            );
-          } catch (err) {
-            console.error("Failed to open overlay:", err);
-            // Don't unset the firedKey — if openOverlay failed, we'd just
-            // re-attempt next tick and likely fail again.
+            events.push({
+              id: `${r.id}@${occ.toISOString()}`,
+              reminderId: r.id,
+              title: r.title,
+              description: r.description || "",
+              eventAtMs,
+              fireAtMs,
+              closeAtMs,
+              eventAtISO: occ.toISOString(),
+              leadMinutes: lead,
+              dismissibleDuringCountdown: s.dismissible,
+              soundEnabled: s.sound_enabled,
+              soundName: s.sound_name,
+              theme: s.theme,
+              overlayPosition: s.overlay_position,
+            });
           }
-
-          // Only one overlay per tick.
-          break;
         }
-      } finally {
-        ticking.current = false;
+
+        // Sort events chronologically so the scheduler processes the nearest ones first
+        events.sort((a, b) => a.fireAtMs - b.fireAtMs);
+
+        await invoke("save_active_events", { events });
+      } catch (err) {
+        console.error("Failed to sync background scheduler with Rust:", err);
       }
     }
 
-    tick();
-    const id = window.setInterval(tick, 15_000);
-    return () => { cancelled = true; window.clearInterval(id); };
+    syncScheduler();
+    
+    // Refresh the active occurrences list every hour
+    const intervalId = window.setInterval(syncScheduler, 60 * 60_000);
+    return () => window.clearInterval(intervalId);
   }, [reminders, settings, userId]);
 }

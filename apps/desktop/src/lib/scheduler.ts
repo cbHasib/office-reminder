@@ -46,3 +46,19 @@ export function isSilencedForUser(r: Reminder, settings: UserSettings | null, us
   if (r.audience === "specific" && !r.target_user_ids.includes(userId)) return true;
   return false;
 }
+
+/** Get all occurrences for a reminder between start and end dates. */
+export function getUpcomingOccurrences(r: Reminder, start: Date, end: Date): Date[] {
+  if (!r.rrule) {
+    const t = new Date(r.scheduled_at);
+    return t >= start && t <= end ? [t] : [];
+  }
+  try {
+    const rule = rrulestr(`DTSTART:${formatICS(new Date(r.scheduled_at))}\nRRULE:${r.rrule}`);
+    return rule.between(start, end, true);
+  } catch (e) {
+    console.error("Failed to parse RRULE for reminder:", r.id, e);
+    return [];
+  }
+}
+
