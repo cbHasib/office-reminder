@@ -1,9 +1,32 @@
 import React from "react";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { useAppTheme } from "../../src/lib/appearanceContext";
 
 export default function TabsLayout() {
+  const { colors, resolvedTheme } = useAppTheme();
+
   return (
-    <NativeTabs>
+    <NativeTabs
+      tintColor={colors.brand}
+      backgroundColor="transparent"
+      blurEffect={resolvedTheme === "dark" ? "systemChromeMaterialDark" : "systemChromeMaterialLight"}
+      iconColor={{
+        default: colors.subtle,
+        selected: colors.brand,
+      }}
+      labelStyle={{
+        default: {
+          color: colors.subtle,
+          fontSize: 10,
+          fontWeight: "500",
+        },
+        selected: {
+          color: colors.brand,
+          fontSize: 10,
+          fontWeight: "600",
+        },
+      }}
+    >
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
@@ -30,3 +53,4 @@ export default function TabsLayout() {
     </NativeTabs>
   );
 }
+

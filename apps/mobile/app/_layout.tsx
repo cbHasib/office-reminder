@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { ActivityIndicator, View, StyleSheet } from "react-native";
+import { ActivityIndicator, View, StyleSheet, AppState } from "react-native";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Host } from "@expo/ui";
 import { supabase } from "../src/lib/supabase";
 import { theme } from "../src/lib/theme";
 import type { User, UserSettings } from "@office-reminder/shared";
 import { registerBackgroundSync } from "../src/lib/backgroundSync";
+import { syncMobileScheduler } from "../src/lib/notificationScheduler";
+import { AppearanceProvider, useAppTheme } from "../src/lib/appearanceContext";
 
 interface AuthContextType {
   user: User | null;
@@ -35,6 +38,17 @@ export const useAuth = () => useContext(AuthContext);
 export const useSettings = () => useContext(SettingsContext);
 
 export default function RootLayout() {
+  return (
+    <AppearanceProvider>
+      <Host style={{ flex: 1 }}>
+        <RootLayoutContent />
+      </Host>
+    </AppearanceProvider>
+  );
+}
+
+function RootLayoutContent() {
+  const { colors, resolvedTheme } = useAppTheme();
   const [session, setSession] = useState<any>(null);
   const [user, setUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -102,11 +116,35 @@ export default function RootLayout() {
   };
 
   useEffect(() => {
-    if (user) {
-      refreshSettings();
-      // Register background scheduler synchronization on bootstrap
-      registerBackgroundSync();
-    }
+    if (!user) return;
+
+    refreshSettings();
+    // Register background scheduler synchronization on bootstrap
+    registerBackgroundSync();
+
+    // Perform foreground sync immediately
+    syncMobileScheduler(user.id);
+
+    // Subscribe to realtime database updates for reminders
+    const channel = supabase
+      .channel("root-reminders-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reminders" }, () => {
+        syncMobileScheduler(user.id);
+      })
+      .subscribe();
+
+    // AppState listener for foreground syncing
+    const appStateSub = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        refreshSettings();
+        syncMobileScheduler(user.id);
+      }
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+      appStateSub.remove();
+    };
   }, [user]);
 
   // Routing synchronization
@@ -121,8 +159,8 @@ export default function RootLayout() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.brand} />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.brand} />
       </View>
     );
   }
@@ -130,7 +168,7 @@ export default function RootLayout() {
   return (
     <AuthContext.Provider value={{ user, session, loading, signOut: async () => { await supabase.auth.signOut(); } }}>
       <SettingsContext.Provider value={{ settings, refreshSettings }}>
-        <StatusBar style="light" />
+        <StatusBar style={resolvedTheme === "light" ? "dark" : "light"} />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="login" options={{ animation: "fade" }} />
           <Stack.Screen name="(tabs)" options={{ animation: "fade_from_bottom" }} />

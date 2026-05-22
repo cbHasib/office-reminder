@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useAuth, useSettings } from "../_layout";
 import { supabase } from "../../src/lib/supabase";
-import { globalStyles, theme } from "../../src/lib/theme";
+import { theme } from "../../src/lib/theme";
 import {
   effectiveAdvanceMinutes,
   getUpcomingOccurrences,
@@ -21,6 +21,8 @@ import { syncReminderLiveActivity } from "../../src/lib/reminderLiveActivity";
 import type { Reminder } from "@office-reminder/shared";
 import { Bell, RefreshCw, AlertCircle, Clock, Calendar } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
+import { useAppTheme, ColorPalette } from "../../src/lib/appearanceContext";
 
 interface DisplayReminder {
   id: string; // reminderId@occurrenceISO
@@ -35,6 +37,9 @@ interface DisplayReminder {
 export default function HomeScreen() {
   const { user } = useAuth();
   const { settings } = useSettings();
+  const { colors, resolvedTheme } = useAppTheme();
+  const styles = getStyles(colors, resolvedTheme);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -160,7 +165,6 @@ export default function HomeScreen() {
       const now = new Date().getTime();
       const eventTime = nearestEvent.occurrence.getTime();
       const fireTime = nearestEvent.fireAt.getTime();
-      const lead = nearestEvent.leadMinutes;
 
       if (now < fireTime) {
         // Countdown to warning lead
@@ -240,14 +244,14 @@ export default function HomeScreen() {
     const isWarningActive = new Date().getTime() >= item.fireAt.getTime() && new Date().getTime() <= item.occurrence.getTime();
     
     return (
-      <View style={[globalStyles.card, styles.eventCard]}>
+      <View style={[styles.card, styles.eventCard]}>
         <View style={styles.eventInfo}>
           <Text style={styles.eventTitle}>{item.title}</Text>
           {item.description ? (
             <Text style={styles.eventDescription} numberOfLines={1}>{item.description}</Text>
           ) : null}
           <View style={styles.eventTimeRow}>
-            <Clock size={14} color={theme.colors.subtle} />
+            <Clock size={14} color={colors.subtle} />
             <Text style={styles.eventTimeText}>
               {item.occurrence.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} (Warning: -{item.leadMinutes}m)
             </Text>
@@ -270,58 +274,70 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={globalStyles.safeArea}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hello,</Text>
-          <Text style={styles.username}>
-            {user?.display_name || user?.email?.split("@")[0] || "Teammate"}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={styles.syncBtn}
-          onPress={triggerManualSync}
-          disabled={refreshing}
-        >
-          {refreshing ? (
-            <ActivityIndicator size="small" color={theme.colors.brand} />
-          ) : (
-            <RefreshCw size={20} color={theme.colors.fg} />
-          )}
-        </TouchableOpacity>
-      </View>
+    <View style={styles.rootContainer}>
+      {/* Absolute Translucent Glass Header */}
+      <BlurView
+        intensity={85}
+        tint={resolvedTheme === "dark" ? "dark" : "light"}
+        style={[styles.headerBlur, { borderBottomColor: colors.border }]}
+      >
+        <SafeAreaView edges={["top", "left", "right"]} style={{ backgroundColor: "transparent" }}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>Hello,</Text>
+              <Text style={styles.username}>
+                {user?.display_name || user?.email?.split("@")[0] || "Teammate"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.syncBtn}
+              onPress={triggerManualSync}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" color={colors.brand} />
+              ) : (
+                <RefreshCw size={20} color={colors.fg} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </BlurView>
 
       {syncStatus && (
-        <View style={styles.syncAlert}>
-          <Text style={styles.syncAlertText}>{syncStatus}</Text>
+        <View style={[styles.syncAlert, { backgroundColor: colors.brand }]}>
+          <Text style={[styles.syncAlertText, { color: colors.brandFg }]}>{syncStatus}</Text>
         </View>
       )}
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={theme.colors.brand} />
+          <ActivityIndicator size="large" color={colors.brand} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ScrollView 
+          contentContainerStyle={[styles.scrollContainer, { paddingTop: 110 }]}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Circular Countdown Panel */}
           {nearestEvent ? (
             <View style={styles.countdownContainer}>
               <View style={styles.pulseGlow} />
               <View style={styles.countdownCircle}>
-                <Clock size={28} color={theme.colors.brand} style={{ marginBottom: theme.spacing.xs }} />
+                <Clock size={28} color={colors.brand} style={{ marginBottom: theme.spacing.xs }} />
                 <Text style={styles.countdownTitle} numberOfLines={1}>
                   {nearestEvent.title}
                 </Text>
                 <Text
                   style={[
                     styles.countdownTime,
-                    timeRemaining.includes("EVENT STARTS") && { color: theme.colors.danger },
+                    timeRemaining.includes("EVENT STARTS") && { color: colors.danger },
                   ]}
                 >
                   {timeRemaining || "Calculating..."}
                 </Text>
                 <View style={styles.eventTimePill}>
-                  <Calendar size={12} color={theme.colors.subtle} style={{ marginRight: 4 }} />
+                  <Calendar size={12} color={colors.subtle} style={{ marginRight: 4 }} />
                   <Text style={styles.eventTimePillText}>
                     {nearestEvent.occurrence.toLocaleDateString([], {
                       weekday: "short",
@@ -336,7 +352,7 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
-                <AlertCircle size={32} color={theme.colors.subtle} />
+                <AlertCircle size={32} color={colors.subtle} />
               </View>
               <Text style={styles.emptyTitle}>All caught up!</Text>
               <Text style={styles.emptySubtitle}>
@@ -361,220 +377,245 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  scrollContainer: {
-    paddingBottom: theme.spacing.xl,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.bg,
-  },
-  greeting: {
-    color: theme.colors.subtle,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  username: {
-    color: theme.colors.fg,
-    fontSize: 20,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-  },
-  syncBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  syncAlert: {
-    backgroundColor: theme.colors.brand,
-    paddingVertical: theme.spacing.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  syncAlertText: {
-    color: theme.colors.brandFg,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  countdownContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: theme.spacing.xxl,
-    position: "relative",
-  },
-  pulseGlow: {
-    position: "absolute",
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: "rgba(129, 140, 248, 0.04)",
-    borderColor: "rgba(129, 140, 248, 0.08)",
-    borderWidth: 2,
-  },
-  countdownCircle: {
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: theme.spacing.lg,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-  },
-  countdownTitle: {
-    color: theme.colors.fg,
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: theme.spacing.xs,
-    textAlign: "center",
-  },
-  countdownTime: {
-    color: theme.colors.brand,
-    fontSize: 16,
-    fontWeight: "800",
-    textAlign: "center",
-    marginVertical: theme.spacing.sm,
-    letterSpacing: -0.2,
-  },
-  eventTimePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: theme.colors.elevated,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radius.sm,
-    marginTop: theme.spacing.xs,
-  },
-  eventTimePillText: {
-    color: theme.colors.subtle,
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: theme.spacing.xxl,
-    paddingHorizontal: theme.spacing.xxl,
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: theme.colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: theme.spacing.md,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-  },
-  emptyTitle: {
-    color: theme.colors.fg,
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: theme.spacing.sm,
-  },
-  emptySubtitle: {
-    color: theme.colors.subtle,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-  },
-  listSection: {
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.md,
-  },
-  sectionHeader: {
-    color: theme.colors.fg,
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: theme.spacing.md,
-    letterSpacing: -0.2,
-  },
-  noEventsText: {
-    color: theme.colors.subtle,
-    fontSize: 14,
-    textAlign: "center",
-    marginVertical: theme.spacing.lg,
-  },
-  eventCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: theme.spacing.md,
-  },
-  eventInfo: {
-    flex: 1,
-    marginRight: theme.spacing.md,
-  },
-  eventTitle: {
-    color: theme.colors.fg,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  eventDescription: {
-    color: theme.colors.subtle,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  eventTimeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: theme.spacing.sm,
-  },
-  eventTimeText: {
-    color: theme.colors.subtle,
-    fontSize: 12,
-    marginLeft: 4,
-    fontWeight: "500",
-  },
-  activePill: {
-    backgroundColor: "rgba(248, 113, 113, 0.15)",
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radius.sm,
-    borderColor: "rgba(248, 113, 113, 0.3)",
-    borderWidth: 1,
-  },
-  activePillText: {
-    color: theme.colors.danger,
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  upcomingPill: {
-    backgroundColor: theme.colors.elevated,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.radius.sm,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-  },
-  upcomingPillText: {
-    color: theme.colors.fg,
-    fontSize: 10,
-    fontWeight: "600",
-  },
-});
+const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
+  StyleSheet.create({
+    rootContainer: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    scrollContainer: {
+      paddingBottom: 120, // ample space at bottom for transparent tabs
+    },
+    headerBlur: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 10,
+      borderBottomWidth: 1,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+    },
+    greeting: {
+      color: colors.subtle,
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    username: {
+      color: colors.fg,
+      fontSize: 20,
+      fontWeight: "700",
+      letterSpacing: -0.5,
+    },
+    syncBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: theme.radius.md,
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    syncAlert: {
+      position: "absolute",
+      top: 90,
+      left: 0,
+      right: 0,
+      zIndex: 9,
+      paddingVertical: theme.spacing.sm,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    syncAlertText: {
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    centerContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.bg,
+    },
+    countdownContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: theme.spacing.xxl,
+      position: "relative",
+    },
+    pulseGlow: {
+      position: "absolute",
+      width: 250,
+      height: 250,
+      borderRadius: 125,
+      backgroundColor: resolvedTheme === "dark" ? "rgba(129, 140, 248, 0.04)" : "rgba(99, 102, 241, 0.04)",
+      borderColor: resolvedTheme === "dark" ? "rgba(129, 140, 248, 0.08)" : "rgba(99, 102, 241, 0.08)",
+      borderWidth: 2,
+    },
+    countdownCircle: {
+      width: 230,
+      height: 230,
+      borderRadius: 115,
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 2,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: theme.spacing.lg,
+      elevation: 4,
+      shadowColor: resolvedTheme === "dark" ? "#000" : "#64748B",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: resolvedTheme === "dark" ? 0.25 : 0.1,
+      shadowRadius: 10,
+    },
+    countdownTitle: {
+      color: colors.fg,
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: theme.spacing.xs,
+      textAlign: "center",
+    },
+    countdownTime: {
+      color: colors.brand,
+      fontSize: 16,
+      fontWeight: "800",
+      textAlign: "center",
+      marginVertical: theme.spacing.sm,
+      letterSpacing: -0.2,
+    },
+    eventTimePill: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.elevated,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: theme.radius.sm,
+      marginTop: theme.spacing.xs,
+    },
+    eventTimePillText: {
+      color: colors.subtle,
+      fontSize: 11,
+      fontWeight: "500",
+    },
+    emptyContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: theme.spacing.xxl,
+      paddingHorizontal: theme.spacing.xxl,
+      marginTop: 20,
+    },
+    emptyIconCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: theme.spacing.md,
+      borderColor: colors.border,
+      borderWidth: 1,
+    },
+    emptyTitle: {
+      color: colors.fg,
+      fontSize: 18,
+      fontWeight: "700",
+      marginBottom: theme.spacing.sm,
+    },
+    emptySubtitle: {
+      color: colors.subtle,
+      fontSize: 14,
+      lineHeight: 20,
+      textAlign: "center",
+    },
+    listSection: {
+      paddingHorizontal: theme.spacing.lg,
+      marginTop: theme.spacing.md,
+    },
+    sectionHeader: {
+      color: colors.fg,
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: theme.spacing.md,
+      letterSpacing: -0.2,
+    },
+    noEventsText: {
+      color: colors.subtle,
+      fontSize: 14,
+      textAlign: "center",
+      marginVertical: theme.spacing.lg,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+    },
+    eventCard: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: theme.spacing.md,
+    },
+    eventInfo: {
+      flex: 1,
+      marginRight: theme.spacing.md,
+    },
+    eventTitle: {
+      color: colors.fg,
+      fontSize: 15,
+      fontWeight: "700",
+    },
+    eventDescription: {
+      color: colors.subtle,
+      fontSize: 13,
+      marginTop: 2,
+    },
+    eventTimeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: theme.spacing.sm,
+    },
+    eventTimeText: {
+      color: colors.subtle,
+      fontSize: 12,
+      marginLeft: 4,
+      fontWeight: "500",
+    },
+    activePill: {
+      backgroundColor: "rgba(248, 113, 113, 0.15)",
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: theme.radius.sm,
+      borderColor: "rgba(248, 113, 113, 0.3)",
+      borderWidth: 1,
+    },
+    activePillText: {
+      color: colors.danger,
+      fontSize: 10,
+      fontWeight: "700",
+    },
+    upcomingPill: {
+      backgroundColor: colors.elevated,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: theme.radius.sm,
+      borderColor: colors.border,
+      borderWidth: 1,
+    },
+    upcomingPillText: {
+      color: colors.fg,
+      fontSize: 10,
+      fontWeight: "600",
+    },
+  });

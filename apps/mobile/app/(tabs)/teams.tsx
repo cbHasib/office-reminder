@@ -12,9 +12,10 @@ import {
 import { Host, Button, Switch as NativeSwitch } from "@expo/ui";
 import { useAuth } from "../_layout";
 import { supabase } from "../../src/lib/supabase";
-import { globalStyles, theme } from "../../src/lib/theme";
+import { theme } from "../../src/lib/theme";
+import { useAppTheme, ColorPalette } from "../../src/lib/appearanceContext";
 import { generateJoinCode } from "@office-reminder/shared";
-import { Users, Plus, Shield, ArrowRight, CheckCircle, Info } from "lucide-react-native";
+import { Users, Plus, Shield, ArrowRight } from "lucide-react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -28,6 +29,9 @@ interface TeamWithRole {
 
 export default function TeamsScreen() {
   const { user } = useAuth();
+  const { colors } = useAppTheme();
+  const styles = getStyles(colors);
+
   const [teams, setTeams] = useState<TeamWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -194,7 +198,7 @@ export default function TeamsScreen() {
     const isAdmin = item.role === "admin";
     return (
       <TouchableOpacity
-        style={[globalStyles.card, styles.teamCard]}
+        style={[styles.card, styles.teamCard]}
         onPress={() => router.push(`/team/${item.id}`)}
       >
         <View style={styles.teamMain}>
@@ -208,25 +212,25 @@ export default function TeamsScreen() {
           </View>
           <Text style={styles.codeText}>Join Code: {item.join_code}</Text>
           <View style={styles.detailsRow}>
-            <Shield size={12} color={theme.colors.subtle} style={{ marginRight: 4 }} />
+            <Shield size={12} color={colors.subtle} style={{ marginRight: 4 }} />
             <Text style={styles.approvalText}>
               {item.require_approval ? "Requires Join Approvals" : "Open Join"}
             </Text>
           </View>
         </View>
-        <ArrowRight size={20} color={theme.colors.subtle} style={styles.chevron} />
+        <ArrowRight size={20} color={colors.subtle} style={styles.chevron} />
       </TouchableOpacity>
     );
   }
 
   return (
-    <SafeAreaView style={globalStyles.safeArea}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <View style={styles.mainContainer}>
         {/* Teams List */}
         <View style={styles.listSection}>
           <Text style={styles.sectionHeader}>My Teams</Text>
           {loading ? (
-            <ActivityIndicator size="large" color={theme.colors.brand} style={{ marginVertical: 30 }} />
+            <ActivityIndicator size="large" color={colors.brand} style={{ marginVertical: 30 }} />
           ) : teams.length > 0 ? (
             <FlatList
               data={teams}
@@ -241,7 +245,7 @@ export default function TeamsScreen() {
             />
           ) : (
             <View style={styles.emptyContainer}>
-              <Users size={32} color={theme.colors.subtle} style={{ marginBottom: theme.spacing.sm }} />
+              <Users size={32} color={colors.subtle} style={{ marginBottom: theme.spacing.sm }} />
               <Text style={styles.emptyText}>You haven't joined any teams yet.</Text>
             </View>
           )}
@@ -254,9 +258,9 @@ export default function TeamsScreen() {
           ListHeaderComponent={
             <View style={styles.actionContainer}>
               {/* Join Team */}
-              <View style={[globalStyles.card, styles.actionCard]}>
+              <View style={[styles.card, styles.actionCard]}>
                 <View style={styles.actionHeader}>
-                  <Users size={20} color={theme.colors.brand} style={{ marginRight: 8 }} />
+                  <Users size={20} color={colors.brand} style={{ marginRight: 8 }} />
                   <Text style={styles.actionTitle}>Join a Team</Text>
                 </View>
                 <Text style={styles.actionDesc}>
@@ -264,9 +268,9 @@ export default function TeamsScreen() {
                 </Text>
                 <View style={styles.inlineRow}>
                   <TextInput
-                    style={[globalStyles.input, styles.codeField]}
+                    style={[styles.input, styles.codeField]}
                     placeholder="ABCDEF"
-                    placeholderTextColor={theme.colors.subtle}
+                    placeholderTextColor={colors.subtle}
                     value={joinCodeInput}
                     onChangeText={setJoinCodeInput}
                     autoCapitalize="characters"
@@ -283,9 +287,9 @@ export default function TeamsScreen() {
               </View>
 
               {/* Create Team */}
-              <View style={[globalStyles.card, styles.actionCard]}>
+              <View style={[styles.card, styles.actionCard]}>
                 <View style={styles.actionHeader}>
-                  <Plus size={20} color={theme.colors.brand} style={{ marginRight: 8 }} />
+                  <Plus size={20} color={colors.brand} style={{ marginRight: 8 }} />
                   <Text style={styles.actionTitle}>Create a Team</Text>
                 </View>
                 <Text style={styles.actionDesc}>
@@ -293,9 +297,9 @@ export default function TeamsScreen() {
                 </Text>
 
                 <TextInput
-                  style={globalStyles.input}
+                  style={styles.input}
                   placeholder="e.g. Engineering Team"
-                  placeholderTextColor={theme.colors.subtle}
+                  placeholderTextColor={colors.subtle}
                   value={teamNameInput}
                   onChangeText={setTeamNameInput}
                 />
@@ -333,162 +337,187 @@ export default function TeamsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-  },
-  listSection: {
-    maxHeight: "45%",
-    marginBottom: theme.spacing.md,
-  },
-  list: {
-    marginTop: theme.spacing.sm,
-  },
-  formsList: {
-    flex: 1,
-  },
-  sectionHeader: {
-    color: theme.colors.fg,
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-    marginBottom: theme.spacing.xs,
-  },
-  teamCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: theme.spacing.md,
-  },
-  teamMain: {
-    flex: 1,
-  },
-  teamHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.xs,
-  },
-  teamName: {
-    color: theme.colors.fg,
-    fontSize: 16,
-    fontWeight: "700",
-    marginRight: theme.spacing.sm,
-  },
-  codeText: {
-    color: theme.colors.subtle,
-    fontSize: 13,
-    fontWeight: "500",
-    marginBottom: theme.spacing.xs,
-  },
-  detailsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  approvalText: {
-    color: theme.colors.subtle,
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: theme.radius.sm,
-  },
-  badgeAdmin: {
-    backgroundColor: "rgba(129, 140, 248, 0.15)",
-  },
-  badgeMember: {
-    backgroundColor: "rgba(148, 163, 184, 0.15)",
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  badgeTextAdmin: {
-    color: theme.colors.brand,
-  },
-  badgeTextMember: {
-    color: theme.colors.subtle,
-  },
-  chevron: {
-    marginLeft: theme.spacing.sm,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.xl,
-    marginTop: theme.spacing.sm,
-  },
-  emptyText: {
-    color: theme.colors.subtle,
-    fontSize: 14,
-    textAlign: "center",
-  },
-  actionContainer: {
-    paddingTop: theme.spacing.xs,
-  },
-  actionCard: {
-    marginBottom: theme.spacing.lg,
-  },
-  actionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.xs,
-  },
-  actionTitle: {
-    color: theme.colors.fg,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  actionDesc: {
-    color: theme.colors.subtle,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: theme.spacing.md,
-  },
-  inlineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  codeField: {
-    flex: 1,
-    marginBottom: 0,
-    marginRight: theme.spacing.sm,
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 2,
-    textAlign: "center",
-  },
-  joinBtnHost: {
-    width: 72,
-    height: 48,
-  },
-  toggleApproval: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.lg,
-  },
-  approvalSwitchHost: {
-    width: 52,
-    height: 32,
-  },
-  toggleLabel: {
-    color: theme.colors.fg,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  toggleSublabel: {
-    color: theme.colors.subtle,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  createBtnHost: {
-    height: 48,
-  },
-});
+const getStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    mainContainer: {
+      flex: 1,
+      paddingHorizontal: theme.spacing.lg,
+      paddingTop: theme.spacing.md,
+    },
+    listSection: {
+      maxHeight: "45%",
+      marginBottom: theme.spacing.md,
+    },
+    list: {
+      marginTop: theme.spacing.sm,
+    },
+    formsList: {
+      flex: 1,
+    },
+    sectionHeader: {
+      color: colors.fg,
+      fontSize: 18,
+      fontWeight: "800",
+      letterSpacing: -0.4,
+      marginBottom: theme.spacing.xs,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+    },
+    input: {
+      backgroundColor: colors.elevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: theme.radius.md,
+      color: colors.fg,
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+      fontSize: 15,
+      marginBottom: theme.spacing.md,
+    },
+    teamCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: theme.spacing.md,
+    },
+    teamMain: {
+      flex: 1,
+    },
+    teamHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: theme.spacing.xs,
+    },
+    teamName: {
+      color: colors.fg,
+      fontSize: 16,
+      fontWeight: "700",
+      marginRight: theme.spacing.sm,
+    },
+    codeText: {
+      color: colors.subtle,
+      fontSize: 13,
+      fontWeight: "500",
+      marginBottom: theme.spacing.xs,
+    },
+    detailsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    approvalText: {
+      color: colors.subtle,
+      fontSize: 11,
+      fontWeight: "500",
+    },
+    badge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: theme.radius.sm,
+    },
+    badgeAdmin: {
+      backgroundColor: "rgba(129, 140, 248, 0.15)",
+    },
+    badgeMember: {
+      backgroundColor: "rgba(148, 163, 184, 0.15)",
+    },
+    badgeText: {
+      fontSize: 10,
+      fontWeight: "700",
+    },
+    badgeTextAdmin: {
+      color: colors.brand,
+    },
+    badgeTextMember: {
+      color: colors.subtle,
+    },
+    chevron: {
+      marginLeft: theme.spacing.sm,
+    },
+    emptyContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: theme.radius.md,
+      padding: theme.spacing.xl,
+      marginTop: theme.spacing.sm,
+    },
+    emptyText: {
+      color: colors.subtle,
+      fontSize: 14,
+      textAlign: "center",
+    },
+    actionContainer: {
+      paddingTop: theme.spacing.xs,
+      paddingBottom: 100, // Ensure content has room to scroll above the glassy bottom tabs!
+    },
+    actionCard: {
+      marginBottom: theme.spacing.lg,
+    },
+    actionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: theme.spacing.xs,
+    },
+    actionTitle: {
+      color: colors.fg,
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    actionDesc: {
+      color: colors.subtle,
+      fontSize: 13,
+      lineHeight: 18,
+      marginBottom: theme.spacing.md,
+    },
+    inlineRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    codeField: {
+      flex: 1,
+      marginBottom: 0,
+      marginRight: theme.spacing.sm,
+      fontSize: 16,
+      fontWeight: "700",
+      letterSpacing: 2,
+      textAlign: "center",
+    },
+    joinBtnHost: {
+      width: 72,
+      height: 48,
+    },
+    toggleApproval: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: theme.spacing.lg,
+    },
+    approvalSwitchHost: {
+      width: 52,
+      height: 32,
+    },
+    toggleLabel: {
+      color: colors.fg,
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    toggleSublabel: {
+      color: colors.subtle,
+      fontSize: 11,
+      marginTop: 2,
+    },
+    createBtnHost: {
+      height: 48,
+    },
+  });
