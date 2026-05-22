@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { Host } from "@expo/ui";
 import { supabase } from "../src/lib/supabase";
 import { theme } from "../src/lib/theme";
-import type { User, UserSettings } from "@office-reminder/shared";
+import type { User, UserSettings } from "../src/lib/shared";
 import { registerBackgroundSync } from "../src/lib/backgroundSync";
 import { syncMobileScheduler } from "../src/lib/notificationScheduler";
 import { AppearanceProvider, useAppTheme } from "../src/lib/appearanceContext";

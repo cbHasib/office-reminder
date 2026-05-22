@@ -14,3 +14,5 @@ target/
 src-tauri/target/
 src-tauri/Cargo.lock
 .expo/
+ios/
+android/

@@ -14,7 +14,7 @@ import { useAuth } from "../_layout";
 import { supabase } from "../../src/lib/supabase";
 import { theme } from "../../src/lib/theme";
 import { useAppTheme, ColorPalette } from "../../src/lib/appearanceContext";
-import { generateJoinCode } from "@office-reminder/shared";
+import { generateJoinCode } from "../../src/lib/shared";
 import { Users, Plus, Shield, ArrowRight } from "lucide-react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";

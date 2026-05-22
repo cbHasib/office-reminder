@@ -19,7 +19,7 @@ import {
   APP_NAME,
   SOURCE_REPO_URL,
   type SoundName,
-} from "@office-reminder/shared";
+} from "../../src/lib/shared";
 import {
   Settings as SettingsIcon,
   Volume2,

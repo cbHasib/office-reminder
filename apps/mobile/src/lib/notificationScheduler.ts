@@ -2,7 +2,7 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { rrulestr } from "rrule";
-import type { Reminder, SoundName, UserSettings } from "@office-reminder/shared";
+import type { Reminder, SoundName, UserSettings } from "./shared";
 import { supabase } from "./supabase";
 import { syncReminderLiveActivity, type ReminderLiveActivityPayload } from "./reminderLiveActivity";
 

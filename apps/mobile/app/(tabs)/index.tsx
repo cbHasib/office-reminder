@@ -18,7 +18,7 @@ import {
   syncMobileScheduler,
 } from "../../src/lib/notificationScheduler";
 import { syncReminderLiveActivity } from "../../src/lib/reminderLiveActivity";
-import type { Reminder } from "@office-reminder/shared";
+import type { Reminder } from "../../src/lib/shared";
 import { Bell, RefreshCw, AlertCircle, Clock, Calendar } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";

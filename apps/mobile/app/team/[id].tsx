@@ -33,7 +33,7 @@ import {
   Square,
   CheckSquare,
 } from "lucide-react-native";
-import type { Reminder, Team, TeamMember, User, JoinRequest } from "@office-reminder/shared";
+import type { Reminder, Team, TeamMember, User, JoinRequest } from "../../src/lib/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const WEEKDAYS = [
