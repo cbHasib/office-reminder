@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { ArrowRight, CheckCircle2, Plus, Shield, Users } from "lucide-react-native";
+import { ArrowRight, Plus, Shield, Users } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../_layout";
 import { supabase } from "../../src/lib/supabase";
@@ -42,7 +42,6 @@ export default function TeamsScreen() {
   const [submittingJoin, setSubmittingJoin] = useState(false);
   const [submittingCreate, setSubmittingCreate] = useState(false);
 
-  const adminCount = useMemo(() => teams.filter((team) => team.role === "admin").length, [teams]);
 
   async function loadTeams() {
     if (!user) return;
@@ -171,6 +170,7 @@ export default function TeamsScreen() {
           <View>
             <Text style={styles.eyebrow}>Workspace</Text>
             <Text style={styles.title}>Teams</Text>
+            <Text style={styles.headerCaption}>Manage the groups that receive your reminders.</Text>
           </View>
           <View style={styles.summaryPill}>
             <Users size={15} color={colors.brand} />
@@ -178,13 +178,7 @@ export default function TeamsScreen() {
           </View>
         </View>
 
-        <View style={styles.statsRow}>
-          <StatCard label="Teams" value={String(teams.length)} colors={colors} />
-          <StatCard label="Admin" value={String(adminCount)} colors={colors} />
-          <StatCard label="Member" value={String(Math.max(teams.length - adminCount, 0))} colors={colors} />
-        </View>
-
-        <SectionTitle title="My Teams" caption="Open a team to manage reminders and members." colors={colors} />
+        <SectionTitle title="My Teams" caption="Open a team to manage reminders and teammates." colors={colors} />
         {loading ? (
           <View style={styles.loadingCard}><ActivityIndicator size="large" color={colors.brand} /></View>
         ) : teams.length > 0 ? (
@@ -289,16 +283,6 @@ function SectionTitle({ title, caption, colors }: { title: string; caption: stri
   );
 }
 
-function StatCard({ label, value, colors }: { label: string; value: string; colors: ColorPalette }) {
-  const styles = getSectionStyles(colors);
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const getSectionStyles = (colors: ColorPalette) => StyleSheet.create({
   sectionTitle: {
     marginTop: theme.spacing.xl,
@@ -306,33 +290,13 @@ const getSectionStyles = (colors: ColorPalette) => StyleSheet.create({
   },
   sectionHeader: {
     color: colors.fg,
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: 0,
+    fontSize: 16,
+    fontWeight: "600",
   },
   sectionCaption: {
     color: colors.subtle,
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-  },
-  statValue: {
-    color: colors.fg,
-    fontSize: 20,
-    fontWeight: "900",
-  },
-  statLabel: {
-    color: colors.subtle,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 13,
+    lineHeight: 18,
     marginTop: 2,
   },
 });
@@ -357,15 +321,22 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
     eyebrow: {
       color: colors.brand,
       fontSize: 12,
-      fontWeight: "800",
+      fontWeight: "600",
       textTransform: "uppercase",
       letterSpacing: 0.8,
     },
     title: {
       color: colors.fg,
-      fontSize: 30,
-      fontWeight: "900",
+      fontSize: 28,
+      fontWeight: "700",
       letterSpacing: 0,
+    },
+    headerCaption: {
+      color: colors.subtle,
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: 2,
+      maxWidth: 250,
     },
     summaryPill: {
       flexDirection: "row",
@@ -381,11 +352,7 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
     summaryText: {
       color: colors.fg,
       fontSize: 14,
-      fontWeight: "800",
-    },
-    statsRow: {
-      flexDirection: "row",
-      gap: theme.spacing.sm,
+      fontWeight: "600",
     },
     loadingCard: {
       minHeight: 120,
@@ -410,17 +377,17 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
       padding: theme.spacing.md,
       shadowColor: resolvedTheme === "dark" ? "#000" : "#64748B",
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: resolvedTheme === "dark" ? 0.12 : 0.05,
-      shadowRadius: 10,
-      elevation: 2,
+      shadowOpacity: resolvedTheme === "dark" ? 0.08 : 0.03,
+      shadowRadius: 8,
+      elevation: 1,
     },
     teamIcon: {
-      width: 42,
-      height: 42,
+      width: 38,
+      height: 38,
       borderRadius: theme.radius.md,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(99, 102, 241, 0.12)",
+      backgroundColor: colors.elevated,
     },
     teamMain: {
       flex: 1,
@@ -435,16 +402,16 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
       flex: 1,
       color: colors.fg,
       fontSize: 16,
-      fontWeight: "800",
+      fontWeight: "600",
     },
     badge: {
       paddingHorizontal: 8,
       paddingVertical: 3,
       borderRadius: theme.radius.full,
     },
-    badgeAdmin: { backgroundColor: "rgba(99, 102, 241, 0.14)" },
-    badgeMember: { backgroundColor: "rgba(100, 116, 139, 0.14)" },
-    badgeText: { fontSize: 10, fontWeight: "800" },
+    badgeAdmin: { backgroundColor: "rgba(124, 155, 255, 0.10)" },
+    badgeMember: { backgroundColor: colors.elevated },
+    badgeText: { fontSize: 10, fontWeight: "600" },
     badgeTextAdmin: { color: colors.brand },
     badgeTextMember: { color: colors.subtle },
     detailsRow: {
@@ -456,8 +423,8 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
     codeText: {
       color: colors.fg,
       fontSize: 12,
-      fontWeight: "900",
-      letterSpacing: 1.2,
+      fontWeight: "500",
+      letterSpacing: 0.6,
     },
     dot: {
       width: 3,
@@ -468,7 +435,7 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
     approvalText: {
       color: colors.subtle,
       fontSize: 12,
-      fontWeight: "600",
+      fontWeight: "500",
     },
     emptyCard: {
       alignItems: "center",
@@ -481,8 +448,8 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
     },
     emptyTitle: {
       color: colors.fg,
-      fontSize: 17,
-      fontWeight: "800",
+      fontSize: 16,
+      fontWeight: "600",
       marginTop: theme.spacing.md,
     },
     emptyText: {
@@ -518,9 +485,9 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
     codeField: {
       flex: 1,
       marginBottom: 0,
-      fontSize: 17,
-      fontWeight: "900",
-      letterSpacing: 2,
+      fontSize: 16,
+      fontWeight: "600",
+      letterSpacing: 1.4,
       textAlign: "center",
     },
     compactButton: {
@@ -551,7 +518,7 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
     toggleLabel: {
       color: colors.fg,
       fontSize: 14,
-      fontWeight: "800",
+      fontWeight: "600",
     },
     toggleSublabel: {
       color: colors.subtle,
@@ -571,7 +538,7 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
     primaryButtonText: {
       color: colors.brandFg,
       fontSize: 15,
-      fontWeight: "800",
+      fontWeight: "600",
     },
     disabled: { opacity: 0.68 },
   });
