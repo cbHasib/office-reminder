@@ -133,11 +133,18 @@ function RootLayoutContent() {
       })
       .subscribe();
 
-    // AppState listener for foreground syncing
-    const appStateSub = AppState.addEventListener("change", (nextAppState) => {
+    // AppState listener for foreground syncing & background Live Activity termination policy
+    const appStateSub = AppState.addEventListener("change", async (nextAppState) => {
       if (nextAppState === "active") {
         refreshSettings();
-        syncMobileScheduler(user.id);
+        await syncMobileScheduler(user.id);
+      } else if (nextAppState === "background") {
+        try {
+          await syncMobileScheduler(user.id, true);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn("Failed to sync background Live Activity policy:", err);
+        }
       }
     });
 

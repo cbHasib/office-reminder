@@ -89,7 +89,7 @@ export function getUpcomingOccurrences(r: Reminder, start: Date, end: Date): Dat
 }
 
 /** Schedules notifications for all valid upcoming occurrences over the next 7 days */
-export async function syncMobileScheduler(userId: string): Promise<number> {
+export async function syncMobileScheduler(userId: string, isBackgroundTransition = false): Promise<number> {
   try {
     // 1. Request notification permissions
     const { status } = await Notifications.getPermissionsAsync();
@@ -180,6 +180,7 @@ export async function syncMobileScheduler(userId: string): Promise<number> {
 
           const liveActivityPayload = {
             reminderId: r.id,
+            teamId: r.team_id,
             title: r.title,
             description: r.description || "",
             startsAtISO: occ.toISOString(),
@@ -267,7 +268,7 @@ export async function syncMobileScheduler(userId: string): Promise<number> {
       }
     }
 
-    await syncReminderLiveActivity(nearestActivity);
+    await syncReminderLiveActivity(nearestActivity, false, isBackgroundTransition);
 
     // eslint-disable-next-line no-console
     console.log(`[Notification Scheduler] Successfully scheduled ${scheduledCount} alerts for the next 7 days.`);

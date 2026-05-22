@@ -84,6 +84,7 @@ export default function SettingsScreen() {
 
         await syncReminderLiveActivity({
           reminderId: "demo-reminder-id",
+          teamId: "demo-reminder-id",
           title: "Practice Standup",
           description: "Active reminder countdown in real-time.",
           startsAtISO: startsAt.toISOString(),

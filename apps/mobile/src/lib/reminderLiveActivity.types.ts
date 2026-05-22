@@ -1,5 +1,6 @@
 export type ReminderLiveActivityPayload = {
   reminderId: string;
+  teamId: string;
   title: string;
   description: string;
   startsAtISO: string;
@@ -8,4 +9,5 @@ export type ReminderLiveActivityPayload = {
   startsAtFormatted?: string;
   warningAtFormatted?: string;
 };
+
 

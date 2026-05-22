@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useAuth } from "../_layout";
+import { syncMobileScheduler } from "../../src/lib/notificationScheduler";
 import { supabase } from "../../src/lib/supabase";
 import { theme } from "../../src/lib/theme";
 import { useAppTheme, ColorPalette } from "../../src/lib/appearanceContext";
@@ -212,16 +213,17 @@ export default function TeamDetailScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from("reminders")
-                .delete()
-                .eq("id", reminder.id);
+             try {
+               const { error } = await supabase
+                 .from("reminders")
+                 .delete()
+                 .eq("id", reminder.id);
 
-              if (error) throw error;
-              Alert.alert("Success", "Reminder deleted successfully.");
-              await loadTeamData();
-            } catch (err: any) {
+               if (error) throw error;
+               Alert.alert("Success", "Reminder deleted successfully.");
+               await loadTeamData();
+               await syncMobileScheduler(user!.id);
+             } catch (err: any) {
               Alert.alert("Delete Error", err.message || "Failed to delete reminder.");
             }
           },
@@ -340,6 +342,9 @@ export default function TeamDetailScreen() {
 
       setModalVisible(false);
       await loadTeamData();
+      if (user?.id) {
+        await syncMobileScheduler(user.id);
+      }
     } catch (err: any) {
       Alert.alert("Save Error", err.message || "Failed to save reminder.");
     } finally {

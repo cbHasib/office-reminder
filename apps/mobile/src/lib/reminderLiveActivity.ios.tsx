@@ -137,10 +137,12 @@ const ReminderCountdownActivity = createLiveActivity<ReminderLiveActivityPayload
 let currentActivity: LiveActivity<ReminderLiveActivityPayload> | null = null;
 let currentReminderKey: string | null = null;
 let endTimer: ReturnType<typeof setTimeout> | null = null;
+let startTimer: ReturnType<typeof setTimeout> | null = null;
 
 export async function syncReminderLiveActivity(
   payload: ReminderLiveActivityPayload | null,
   throwOnError = false,
+  isBackgroundTransition = false,
 ): Promise<void> {
   try {
     if (!payload) {
@@ -149,47 +151,43 @@ export async function syncReminderLiveActivity(
     }
 
     const startsAt = new Date(payload.startsAtISO);
+    const warningAt = new Date(payload.warningAtISO);
     const now = Date.now();
     
-    // If the event started more than 60 seconds ago, dismiss immediately
-    if (startsAt.getTime() + 60_000 <= now) {
+    // 1. If the warning time is in the future, don't start the Live Activity yet
+    if (warningAt.getTime() > now) {
+      await endCurrentActivity("immediate");
+      scheduleActivityStart(warningAt, payload);
+      return;
+    }
+
+    // 2. If the event has already started, dismiss immediately
+    if (startsAt.getTime() <= now) {
       await endCurrentActivity("immediate");
       return;
     }
 
     const reminderKey = `${payload.reminderId}@${payload.startsAtISO}`;
-    const isHappeningNow = startsAt.getTime() <= now;
 
-    // If it's already happening and currentActivity is null but key matches,
-    // we already finished the "Happening now!" transition. Avoid recreation/re-updating.
-    if (isHappeningNow && currentReminderKey === reminderKey && !currentActivity) {
-      return;
-    }
+    const activePayload: ReminderLiveActivityPayload = payload;
 
-    const activePayload: ReminderLiveActivityPayload = isHappeningNow ? {
-      ...payload,
-      description: "Happening now!",
-      startsAtFormatted: "Now",
-    } : payload;
-
-    if (isHappeningNow) {
-      // Transition immediately to Happening Now and schedule graceful Lock Screen exit in 60s
+    // 3. Background transition phase
+    if (isBackgroundTransition) {
+      // If we are transitioning to the background, end the activity with a future dismissal policy.
+      // This ensures that iOS will automatically remove the Live Activity from the Lock Screen
+      // the exact second the countdown reaches startsAt, even if our JS thread is suspended.
       if (currentActivity && currentReminderKey === reminderKey) {
-        await currentActivity.update(activePayload);
-        const dismissAt = new Date(startsAt.getTime() + 60_000);
-        await currentActivity.end(after(dismissAt), activePayload, new Date());
+        await currentActivity.end(after(startsAt), activePayload, new Date());
         currentActivity = null;
       } else {
         await endCurrentActivity("immediate");
         const activeInstances = await ReminderCountdownActivity.getInstances();
         const startedActivity = activeInstances[0] ?? (await ReminderCountdownActivity.start(
           activePayload,
-          `officereminder://team/${payload.reminderId}`,
+          `officereminder://team/${payload.teamId}`,
         ));
         currentActivity = startedActivity;
-        await currentActivity.update(activePayload);
-        const dismissAt = new Date(startsAt.getTime() + 60_000);
-        await currentActivity.end(after(dismissAt), activePayload, new Date());
+        await currentActivity.end(after(startsAt), activePayload, new Date());
         currentActivity = null;
       }
       currentReminderKey = reminderKey;
@@ -197,10 +195,16 @@ export async function syncReminderLiveActivity(
         clearTimeout(endTimer);
         endTimer = null;
       }
+      if (startTimer) {
+        clearTimeout(startTimer);
+        startTimer = null;
+      }
+      // eslint-disable-next-line no-console
+      console.log("[Live Activity] Configured future native background dismissal at startsAt.");
       return;
     }
 
-    // Active countdown phase
+    // 4. Foreground Active countdown phase
     if (currentActivity && currentReminderKey === reminderKey) {
       await currentActivity.update(activePayload);
     } else {
@@ -208,7 +212,7 @@ export async function syncReminderLiveActivity(
       const activeInstances = await ReminderCountdownActivity.getInstances();
       const startedActivity = activeInstances[0] ?? (await ReminderCountdownActivity.start(
         activePayload,
-        `officereminder://team/${payload.reminderId}`,
+        `officereminder://team/${payload.teamId}`,
       ));
       currentActivity = startedActivity;
       await currentActivity.update(activePayload);
@@ -231,6 +235,10 @@ async function endCurrentActivity(policy: "default" | "immediate") {
   if (endTimer) {
     clearTimeout(endTimer);
     endTimer = null;
+  }
+  if (startTimer) {
+    clearTimeout(startTimer);
+    startTimer = null;
   }
   if (currentActivity) {
     try {
@@ -255,27 +263,48 @@ async function endCurrentActivity(policy: "default" | "immediate") {
   currentReminderKey = null;
 }
 
-function scheduleActivityEnd(startsAt: Date, payload: ReminderLiveActivityPayload) {
+function scheduleActivityStart(warningAt: Date, payload: ReminderLiveActivityPayload) {
+  if (startTimer) clearTimeout(startTimer);
+  
+  const now = Date.now();
+  const delay = Math.max(0, warningAt.getTime() - now);
+  
+  startTimer = setTimeout(async () => {
+    try {
+      await syncReminderLiveActivity(payload);
+    } catch (e) {
+      // Ignore
+    }
+    startTimer = null;
+  }, delay);
+}
+
+function scheduleActivityEnd(startsAt: Date, _payload: ReminderLiveActivityPayload) {
   if (endTimer) clearTimeout(endTimer);
   
   const now = Date.now();
   const eventDelay = Math.max(0, startsAt.getTime() - now);
   
   endTimer = setTimeout(async () => {
-    if (!currentActivity) return;
     try {
-      const finalPayload = {
-        ...payload,
-        description: "Happening now!",
-        startsAtFormatted: "Now",
-      };
-      await currentActivity.update(finalPayload);
-      
-      const dismissAt = new Date(startsAt.getTime() + 60_000);
-      await currentActivity.end(after(dismissAt), finalPayload, new Date());
+      if (currentActivity) {
+        await currentActivity.end("immediate");
+      }
     } catch (e) {
       // Ignore
     }
     currentActivity = null;
+    try {
+      const activeInstances = await ReminderCountdownActivity.getInstances();
+      for (const activity of activeInstances) {
+        try {
+          await activity.end("immediate");
+        } catch (e) {
+          // Ignore
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
   }, eventDelay);
 }

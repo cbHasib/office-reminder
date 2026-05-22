@@ -27,6 +27,7 @@ import { useAppTheme, ColorPalette } from "../../src/lib/appearanceContext";
 interface DisplayReminder {
   id: string; // reminderId@occurrenceISO
   reminderId: string;
+  teamId: string;
   title: string;
   description: string;
   occurrence: Date;
@@ -131,6 +132,7 @@ export default function HomeScreen() {
           events.push({
             id: `${r.id}@${occ.toISOString()}`,
             reminderId: r.id,
+            teamId: r.team_id,
             title: r.title,
             description: r.description || "",
             occurrence: occ,
@@ -223,6 +225,7 @@ export default function HomeScreen() {
 
         await syncReminderLiveActivity({
           reminderId: nearestEvent.reminderId,
+          teamId: nearestEvent.teamId,
           title: nearestEvent.title,
           description: isHappeningNow ? "Happening now!" : nearestEvent.description,
           startsAtISO: nearestEvent.occurrence.toISOString(),
