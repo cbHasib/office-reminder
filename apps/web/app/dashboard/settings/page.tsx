@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import SettingsForm from "@/components/SettingsForm";
 import { DEFAULT_USER_SETTINGS } from "@office-reminder/shared";
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
 
   const { data: settings } = await supabase
     .from("user_settings")

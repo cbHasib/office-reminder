@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import RemindersTable from "@/components/RemindersTable";
 import TeamHeader from "@/components/TeamHeader";
 
 export default async function TeamPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
 
   const [teamRes, membershipRes, remindersRes] = await Promise.all([
     supabase

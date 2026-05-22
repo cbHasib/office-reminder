@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import AccountForm from "@/components/AccountForm";
 
 export default async function AccountPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
 
   const { data: profile } = await supabase
     .from("users").select("display_name, email").eq("id", user!.id).single();

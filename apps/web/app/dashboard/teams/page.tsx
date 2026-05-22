@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import CreateTeamForm from "@/components/CreateTeamForm";
 import JoinTeamForm from "@/components/JoinTeamForm";
 import PendingRequestsList from "@/components/PendingRequestsList";
 
 export default async function TeamsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
 
   const [membershipsRes, myRequestsRes] = await Promise.all([
     supabase

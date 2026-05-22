@@ -1,11 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import TeamSettingsForm from "@/components/TeamSettingsForm";
 
 export default async function TeamSettingsPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
 
   const [teamRes, membershipRes] = await Promise.all([
     supabase

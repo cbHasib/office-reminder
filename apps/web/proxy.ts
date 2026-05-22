@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   const path = request.nextUrl.pathname;
 
-  // Keep middleware fast: session reads cookies, while getUser validates with Supabase.
+  // Keep proxy fast: session reads cookies, while getUser validates with Supabase.
   // Dashboard layouts still verify the user server-side before rendering protected data.
   if (!session && path.startsWith("/dashboard")) {
     return NextResponse.redirect(new URL("/login", request.url));
