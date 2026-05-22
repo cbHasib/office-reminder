@@ -9,26 +9,30 @@ export default async function TeamPage({ params }: { params: Promise<{ teamId: s
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: team } = await supabase
-    .from("teams")
-    .select("id, name, join_code, require_approval, created_by")
-    .eq("id", teamId)
-    .single();
+  const [teamRes, membershipRes, remindersRes] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name, join_code, require_approval, created_by")
+      .eq("id", teamId)
+      .single(),
+    supabase
+      .from("team_members")
+      .select("role")
+      .eq("team_id", teamId)
+      .eq("user_id", user!.id)
+      .single(),
+    supabase
+      .from("reminders")
+      .select("*")
+      .eq("team_id", teamId)
+      .order("scheduled_at", { ascending: true }),
+  ]);
+
+  const team = teamRes.data;
   if (!team) notFound();
 
-  const { data: membership } = await supabase
-    .from("team_members")
-    .select("role")
-    .eq("team_id", teamId)
-    .eq("user_id", user!.id)
-    .single();
-  const isAdmin = membership?.role === "admin";
-
-  const { data: reminders } = await supabase
-    .from("reminders")
-    .select("*")
-    .eq("team_id", teamId)
-    .order("scheduled_at", { ascending: true });
+  const isAdmin = membershipRes.data?.role === "admin";
+  const reminders = remindersRes.data ?? [];
 
   // For admins: count of pending requests so we can badge the link.
   let pendingCount = 0;

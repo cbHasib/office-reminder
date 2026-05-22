@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { applyTheme, getStoredTheme } from "./ThemeProvider";
 import { createClient } from "@/lib/supabase-browser";
@@ -22,10 +21,10 @@ export default function ThemePicker() {
     }
   }
 
-  const opts: { v: Theme; label: string; icon: ReactNode }[] = [
-    { v: "system", label: "Auto",  icon: <Auto /> },
-    { v: "light",  label: "Light", icon: <Sun /> },
-    { v: "dark",   label: "Dark",  icon: <Moon /> },
+  const opts: { v: Theme; label: string; Icon: () => React.JSX.Element }[] = [
+    { v: "system", label: "Auto", Icon: Auto },
+    { v: "light", label: "Light", Icon: Sun },
+    { v: "dark", label: "Dark", Icon: Moon },
   ];
 
   return (
@@ -34,11 +33,12 @@ export default function ThemePicker() {
       <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-bg p-1">
         {opts.map((o) => {
           const active = theme === o.v;
+          const Icon = o.Icon;
           return (
             <button key={o.v} onClick={() => pick(o.v)}
               className={`flex items-center justify-center gap-1 rounded-md py-1.5 text-xs font-medium transition
                 ${active ? "bg-surface text-fg shadow-sm" : "text-subtle hover:text-fg"}`}>
-              {o.icon}
+              <Icon />
               <span className="hidden lg:inline">{o.label}</span>
             </button>
           );

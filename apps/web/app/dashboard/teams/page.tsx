@@ -8,20 +8,21 @@ export default async function TeamsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: memberships } = await supabase
-    .from("team_members")
-    .select("role, team:teams(id, name, join_code)")
-    .eq("user_id", user!.id);
+  const [membershipsRes, myRequestsRes] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("role, team:teams(id, name, join_code)")
+      .eq("user_id", user!.id),
+    supabase
+      .from("join_requests")
+      .select("id, status, created_at, team:teams(id, name, join_code)")
+      .eq("user_id", user!.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false }),
+  ]);
 
-  const teams = (memberships ?? []).map((m: any) => ({ ...m.team, role: m.role }));
-
-  // Pending join requests for current user (their own requests)
-  const { data: myRequests } = await supabase
-    .from("join_requests")
-    .select("id, status, created_at, team:teams(id, name, join_code)")
-    .eq("user_id", user!.id)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
+  const teams = (membershipsRes.data ?? []).map((m: any) => ({ ...m.team, role: m.role }));
+  const myRequests = myRequestsRes.data ?? [];
 
   return (
     <div className="space-y-10">

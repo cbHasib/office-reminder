@@ -19,14 +19,15 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
   const path = request.nextUrl.pathname;
 
-  // Redirect rules: protect /dashboard/*, push logged-in users away from /login.
-  if (!user && path.startsWith("/dashboard")) {
+  // Keep middleware fast: session reads cookies, while getUser validates with Supabase.
+  // Dashboard layouts still verify the user server-side before rendering protected data.
+  if (!session && path.startsWith("/dashboard")) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
-  if (user && (path === "/login" || path === "/signup")) {
+  if (session && (path === "/login" || path === "/signup")) {
     return NextResponse.redirect(new URL("/dashboard/teams", request.url));
   }
 
@@ -34,5 +35,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/dashboard/:path*", "/login", "/signup"],
 };

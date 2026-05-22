@@ -1,5 +1,5 @@
 {
-  "name": "mobile",
+  "name": "office-reminder-mobile",
   "version": "0.1.0",
   "private": true,
   "main": "expo-router/entry",
@@ -8,10 +8,12 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "ts:check": "tsc"
+    "ts:check": "tsc",
+    "doctor": "expo-doctor",
+    "prebuild": "expo prebuild"
   },
   "dependencies": {
-    "@expo/ui": "latest",
+    "@expo/ui": "^56.0.12",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@supabase/supabase-js": "^2.45.0",
     "expo": "^56.0.3",
@@ -41,5 +43,9 @@
   "devDependencies": {
     "@types/react": "~19.2.14",
     "typescript": "^6.0.3"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20"
   }
 }

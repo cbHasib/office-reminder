@@ -7,20 +7,23 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: team } = await supabase
-    .from("teams")
-    .select("id, name, join_code, require_approval, created_by")
-    .eq("id", teamId)
-    .single();
-  if (!team) notFound();
+  const [teamRes, membershipRes] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name, join_code, require_approval, created_by")
+      .eq("id", teamId)
+      .single(),
+    supabase
+      .from("team_members")
+      .select("role")
+      .eq("team_id", teamId)
+      .eq("user_id", user!.id)
+      .single(),
+  ]);
 
-  const { data: membership } = await supabase
-    .from("team_members")
-    .select("role")
-    .eq("team_id", teamId)
-    .eq("user_id", user!.id)
-    .single();
-  if (membership?.role !== "admin") redirect(`/dashboard/teams/${teamId}`);
+  const team = teamRes.data;
+  if (!team) notFound();
+  if (membershipRes.data?.role !== "admin") redirect(`/dashboard/teams/${teamId}`);
 
   return (
     <div className="space-y-6">
