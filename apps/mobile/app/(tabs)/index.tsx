@@ -629,7 +629,7 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
       color: colors.fg,
       fontSize: 17,
       fontWeight: "700",
-      letterSpacing: -0.3,
+      letterSpacing: 0,
     },
     syncBtn: {
       width: 34,
@@ -719,7 +719,7 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
       fontSize: 24,
       fontWeight: "900",
       fontVariant: ["tabular-nums"],
-      letterSpacing: -1,
+      letterSpacing: 0,
     },
     segmentUnit: {
       fontSize: 11,
@@ -732,7 +732,7 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
       fontWeight: "800",
       textAlign: "center",
       marginVertical: theme.spacing.sm,
-      letterSpacing: -0.3,
+      letterSpacing: 0,
     },
     eventTimePill: {
       flexDirection: "row",
@@ -790,7 +790,7 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
       fontSize: 17,
       fontWeight: "700",
       marginBottom: theme.spacing.md,
-      letterSpacing: -0.3,
+      letterSpacing: 0,
     },
     noEventsText: {
       color: colors.subtle,

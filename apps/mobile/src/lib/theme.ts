@@ -2,19 +2,19 @@ import { StyleSheet } from "react-native";
 
 export const theme = {
   colors: {
-    bg: "#0A0E16",          // 10 14 22
-    surface: "#121823",     // 18 24 35
-    elevated: "#181F2C",    // 24 31 44
-    border: "#252F40",      // 37 47 64
-    muted: "#1B2332",       // 27 35 50
-    fg: "#ECF0F7",          // 236 240 247
-    subtle: "#94A3B8",      // 148 163 184
-    brand: "#818CFA",       // 129 140 248
-    brandFg: "#0A0E16",
-    danger: "#F87171",      // 248 113 113
-    success: "#34D399",     // 52 211 153
-    warning: "#FBBF24",     // 251 191 36
-    overlayBg: "rgba(10, 14, 22, 0.85)",
+    bg: "#090B10",
+    surface: "#121720",
+    elevated: "#1A202B",
+    border: "#2A3240",
+    muted: "#202734",
+    fg: "#F5F7FB",
+    subtle: "#9AA6B8",
+    brand: "#7C9BFF",
+    brandFg: "#07101F",
+    danger: "#FF6B6B",
+    success: "#34D399",
+    warning: "#F5B84B",
+    overlayBg: "rgba(9, 11, 16, 0.88)",
   },
   spacing: {
     xs: 4,
@@ -26,9 +26,9 @@ export const theme = {
   },
   radius: {
     sm: 6,
-    md: 10,
-    lg: 14,
-    xl: 20,
+    md: 8,
+    lg: 8,
+    xl: 10,
     full: 9999,
   },
 };

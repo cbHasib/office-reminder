@@ -457,7 +457,7 @@ const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
       color: colors.fg,
       fontSize: 18,
       fontWeight: "700",
-      letterSpacing: -0.4,
+      letterSpacing: 0,
     },
     profileEmail: {
       color: colors.subtle,

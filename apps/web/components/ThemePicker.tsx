@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { applyTheme, getStoredTheme } from "./ThemeProvider";
 import { createClient } from "@/lib/supabase-browser";
@@ -21,7 +22,7 @@ export default function ThemePicker() {
     }
   }
 
-  const opts: { v: Theme; label: string; icon: JSX.Element }[] = [
+  const opts: { v: Theme; label: string; icon: ReactNode }[] = [
     { v: "system", label: "Auto",  icon: <Auto /> },
     { v: "light",  label: "Light", icon: <Sun /> },
     { v: "dark",   label: "Dark",  icon: <Moon /> },

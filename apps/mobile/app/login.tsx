@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -10,12 +11,11 @@ import {
   View,
   StyleSheet,
 } from "react-native";
-// Removed unused @expo/ui imports
+import { Mail, LockKeyhole, UserRound, ArrowRight, ShieldCheck } from "lucide-react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../src/lib/supabase";
 import { theme } from "../src/lib/theme";
 import { useAppTheme, ColorPalette } from "../src/lib/appearanceContext";
-import { Bell } from "lucide-react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -25,8 +25,8 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { colors } = useAppTheme();
-  const styles = getStyles(colors);
+  const { colors, resolvedTheme } = useAppTheme();
+  const styles = getStyles(colors, resolvedTheme);
 
   async function handleAuth() {
     if (!email || !password) {
@@ -41,20 +41,13 @@ export default function LoginScreen() {
         const { error: signUpErr } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            data: {
-              display_name: displayName || null,
-            },
-          },
+          options: { data: { display_name: displayName || null } },
         });
         if (signUpErr) throw signUpErr;
-        setError("Account created! Please log in.");
+        setError("Account created. Log in to continue.");
         setIsSignUp(false);
       } else {
-        const { error: signInErr } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
         if (signInErr) throw signInErr;
       }
     } catch (err: any) {
@@ -66,123 +59,85 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <Bell size={36} color={colors.brand} />
-            </View>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={styles.brandBlock}>
+            <Image source={require("../assets/icon.png")} style={styles.logo} resizeMode="cover" />
             <Text style={styles.brandTitle}>Office Reminder</Text>
-            <Text style={styles.brandSubtitle}>
-              Stay synchronized with your team events
-            </Text>
+            <Text style={styles.brandSubtitle}>Team reminders that stay visible when timing matters.</Text>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.formTitle}>
-              {isSignUp ? "Create an account" : "Welcome Back"}
-            </Text>
-            <Text style={[styles.subtitle, { marginBottom: theme.spacing.lg }]}>
-              {isSignUp
-                ? "Register a new user account below."
-                : "Log in to your Office Reminder account."}
-            </Text>
+          <View style={styles.panel}>
+            <View style={styles.panelHeader}>
+              <View>
+                <Text style={styles.formTitle}>{isSignUp ? "Create Account" : "Welcome Back"}</Text>
+                <Text style={styles.subtitle}>{isSignUp ? "Start coordinating reminders with your team." : "Log in to manage your schedule."}</Text>
+              </View>
+              <View style={styles.statusPill}>
+                <ShieldCheck size={13} color={colors.success} />
+                <Text style={styles.statusPillText}>Secure</Text>
+              </View>
+            </View>
 
             {isSignUp && (
-              <View>
-                <Text style={styles.label}>Name (Optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="John Doe"
-                  placeholderTextColor={colors.subtle}
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  autoCapitalize="words"
-                />
-              </View>
+              <InputRow
+                icon={<UserRound size={18} color={colors.subtle} />}
+                placeholder="Name"
+                value={displayName}
+                onChangeText={setDisplayName}
+                autoCapitalize="words"
+                colors={colors}
+              />
             )}
 
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
+            <InputRow
+              icon={<Mail size={18} color={colors.subtle} />}
               placeholder="you@company.com"
-              placeholderTextColor={colors.subtle}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="email"
+              colors={colors}
             />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor={colors.subtle}
+            <InputRow
+              icon={<LockKeyhole size={18} color={colors.subtle} />}
+              placeholder="Password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="password"
+              colors={colors}
             />
 
             {error && (
-              <View style={styles.errorContainer}>
-                <Text
-                  style={[
-                    styles.errorText,
-                    error.includes("created") && { color: colors.success },
-                  ]}
-                >
-                  {error}
-                </Text>
+              <View style={[styles.feedback, error.includes("created") && styles.feedbackSuccess]}>
+                <Text style={[styles.feedbackText, error.includes("created") && { color: colors.success }]}>{error}</Text>
               </View>
             )}
 
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator color={colors.brand} />
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={{
-                  height: 48,
-                  backgroundColor: colors.brand,
-                  borderRadius: theme.radius.md,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: theme.spacing.xs,
-                }}
-                onPress={handleAuth}
-                activeOpacity={0.8}
-              >
-                <Text style={{ color: colors.brandFg, fontSize: 16, fontWeight: "600" }}>
-                  {isSignUp ? "Sign Up" : "Log In"}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity style={[styles.primaryButton, loading && styles.disabled]} onPress={handleAuth} disabled={loading} activeOpacity={0.82}>
+              {loading ? <ActivityIndicator color={colors.brandFg} /> : (
+                <>
+                  <Text style={styles.primaryButtonText}>{isSignUp ? "Create Account" : "Log In"}</Text>
+                  <ArrowRight size={18} color={colors.brandFg} />
+                </>
+              )}
+            </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.toggleContainer}
+              style={styles.toggleButton}
               onPress={() => {
                 setIsSignUp(!isSignUp);
                 setError(null);
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.toggleText}>
-                {isSignUp
-                  ? "Already have an account? Log In"
-                  : "New user? Create an account"}
-              </Text>
+              <Text style={styles.toggleText}>{isSignUp ? "I already have an account" : "Create a new account"}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -191,112 +146,168 @@ export default function LoginScreen() {
   );
 }
 
-const getStyles = (colors: ColorPalette) =>
+function InputRow({ icon, colors, ...props }: React.ComponentProps<typeof TextInput> & { icon: React.ReactNode; colors: ColorPalette }) {
+  const styles = getInputStyles(colors);
+  return (
+    <View style={styles.inputShell}>
+      <View style={styles.inputIcon}>{icon}</View>
+      <TextInput {...props} style={styles.input} placeholderTextColor={colors.subtle} />
+    </View>
+  );
+}
+
+const getInputStyles = (colors: ColorPalette) => StyleSheet.create({
+  inputShell: {
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.elevated,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    marginBottom: theme.spacing.md,
+  },
+  inputIcon: {
+    width: 46,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  input: {
+    flex: 1,
+    color: colors.fg,
+    fontSize: 15,
+    paddingVertical: theme.spacing.md,
+    paddingRight: theme.spacing.lg,
+  },
+});
+
+const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
   StyleSheet.create({
+    flex: { flex: 1 },
     safeArea: {
       flex: 1,
       backgroundColor: colors.bg,
-    },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: theme.radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: theme.spacing.lg,
-      marginBottom: theme.spacing.md,
-    },
-    input: {
-      backgroundColor: colors.elevated,
-      borderColor: colors.border,
-      borderWidth: 1,
-      borderRadius: theme.radius.md,
-      color: colors.fg,
-      paddingHorizontal: theme.spacing.lg,
-      paddingVertical: theme.spacing.md,
-      fontSize: 15,
-      marginBottom: theme.spacing.md,
-    },
-    subtitle: {
-      color: colors.subtle,
-      fontSize: 15,
-      lineHeight: 22,
     },
     scrollContainer: {
       flexGrow: 1,
       justifyContent: "center",
       paddingHorizontal: theme.spacing.lg,
-      paddingBottom: 40,
+      paddingTop: theme.spacing.xl,
+      paddingBottom: 48,
     },
-    header: {
+    brandBlock: {
       alignItems: "center",
-      marginBottom: theme.spacing.xxl,
+      marginBottom: theme.spacing.xl,
     },
-    iconContainer: {
-      width: 72,
-      height: 72,
-      borderRadius: theme.radius.xl,
-      backgroundColor: colors.surface,
+    logo: {
+      width: 86,
+      height: 86,
+      borderRadius: 22,
+      marginBottom: theme.spacing.md,
       borderColor: colors.border,
       borderWidth: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: theme.spacing.md,
     },
     brandTitle: {
       color: colors.fg,
-      fontSize: 26,
+      fontSize: 28,
       fontWeight: "800",
-      letterSpacing: -0.5,
+      letterSpacing: 0,
     },
     brandSubtitle: {
       color: colors.subtle,
       fontSize: 14,
+      lineHeight: 20,
       marginTop: theme.spacing.xs,
+      maxWidth: 280,
+      textAlign: "center",
+    },
+    panel: {
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: theme.spacing.lg,
+      shadowColor: resolvedTheme === "dark" ? "#000" : "#475569",
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: resolvedTheme === "dark" ? 0.24 : 0.08,
+      shadowRadius: 22,
+      elevation: 4,
+    },
+    panelHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
     },
     formTitle: {
       color: colors.fg,
-      fontSize: 20,
-      fontWeight: "700",
-      marginBottom: theme.spacing.xs,
+      fontSize: 21,
+      fontWeight: "800",
+      letterSpacing: 0,
     },
-    label: {
-      color: colors.fg,
-      fontSize: 14,
-      fontWeight: "600",
-      marginBottom: theme.spacing.xs,
+    subtitle: {
+      color: colors.subtle,
+      fontSize: 13,
+      lineHeight: 19,
+      marginTop: 3,
     },
-    errorContainer: {
+    statusPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      backgroundColor: "rgba(16, 185, 129, 0.12)",
+      borderColor: "rgba(16, 185, 129, 0.22)",
+      borderWidth: 1,
+      borderRadius: theme.radius.full,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+    },
+    statusPillText: {
+      color: colors.success,
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    feedback: {
       marginBottom: theme.spacing.md,
-      backgroundColor: "rgba(248, 113, 113, 0.1)",
-      borderColor: "rgba(248, 113, 113, 0.2)",
+      backgroundColor: "rgba(239, 68, 68, 0.10)",
+      borderColor: "rgba(239, 68, 68, 0.22)",
       borderWidth: 1,
       padding: theme.spacing.md,
-      borderRadius: theme.radius.sm,
+      borderRadius: theme.radius.md,
     },
-    errorText: {
+    feedbackSuccess: {
+      backgroundColor: "rgba(16, 185, 129, 0.10)",
+      borderColor: "rgba(16, 185, 129, 0.22)",
+    },
+    feedbackText: {
       color: colors.danger,
-      fontSize: 14,
-      fontWeight: "500",
+      fontSize: 13,
+      fontWeight: "600",
       textAlign: "center",
     },
-    authBtnHost: {
-      height: 48,
-      marginBottom: theme.spacing.xs,
-    },
-    loadingContainer: {
-      height: 48,
+    primaryButton: {
+      minHeight: 52,
+      borderRadius: theme.radius.md,
+      backgroundColor: colors.brand,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: theme.spacing.xs,
+      gap: theme.spacing.sm,
     },
-    toggleContainer: {
-      marginTop: theme.spacing.lg,
+    disabled: { opacity: 0.7 },
+    primaryButtonText: {
+      color: colors.brandFg,
+      fontSize: 16,
+      fontWeight: "800",
+    },
+    toggleButton: {
       alignItems: "center",
+      paddingTop: theme.spacing.lg,
     },
     toggleText: {
       color: colors.brand,
       fontSize: 14,
-      fontWeight: "500",
-      textDecorationLine: "underline",
+      fontWeight: "700",
     },
   });

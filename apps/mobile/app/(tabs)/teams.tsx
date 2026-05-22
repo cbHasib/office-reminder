@@ -1,23 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  StyleSheet,
-  Alert,
 } from "react-native";
-import { Host, Button, Switch as NativeSwitch } from "@expo/ui";
+import { router } from "expo-router";
+import { ArrowRight, CheckCircle2, Plus, Shield, Users } from "lucide-react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../_layout";
 import { supabase } from "../../src/lib/supabase";
 import { theme } from "../../src/lib/theme";
 import { useAppTheme, ColorPalette } from "../../src/lib/appearanceContext";
 import { generateJoinCode } from "../../src/lib/shared";
-import { Users, Plus, Shield, ArrowRight } from "lucide-react-native";
-import { router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 interface TeamWithRole {
   id: string;
@@ -29,24 +30,23 @@ interface TeamWithRole {
 
 export default function TeamsScreen() {
   const { user } = useAuth();
-  const { colors } = useAppTheme();
-  const styles = getStyles(colors);
+  const { colors, resolvedTheme } = useAppTheme();
+  const styles = getStyles(colors, resolvedTheme);
 
   const [teams, setTeams] = useState<TeamWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Forms
   const [joinCodeInput, setJoinCodeInput] = useState("");
   const [teamNameInput, setTeamNameInput] = useState("");
   const [requireApproval, setRequireApproval] = useState(false);
   const [submittingJoin, setSubmittingJoin] = useState(false);
   const [submittingCreate, setSubmittingCreate] = useState(false);
 
+  const adminCount = useMemo(() => teams.filter((team) => team.role === "admin").length, [teams]);
+
   async function loadTeams() {
     if (!user) return;
     try {
-      // 1. Fetch team members to get team ids and roles
       const { data: memberData, error: memberErr } = await supabase
         .from("team_members")
         .select("team_id, role")
@@ -59,27 +59,18 @@ export default function TeamsScreen() {
       }
 
       const teamIds = memberData.map((m) => m.team_id);
-      const roleMap = new Map<string, "admin" | "member">(
-        memberData.map((m) => [m.team_id, m.role])
-      );
+      const roleMap = new Map<string, "admin" | "member">(memberData.map((m) => [m.team_id, m.role]));
 
-      // 2. Fetch team details
-      const { data: teamsData, error: teamsErr } = await supabase
-        .from("teams")
-        .select("*")
-        .in("id", teamIds);
-
+      const { data: teamsData, error: teamsErr } = await supabase.from("teams").select("*").in("id", teamIds);
       if (teamsErr) throw teamsErr;
 
-      const structuredTeams = (teamsData || []).map((t: any) => ({
-        id: t.id,
-        name: t.name,
-        join_code: t.join_code,
-        require_approval: t.require_approval,
-        role: roleMap.get(t.id) || "member",
-      }));
-
-      setTeams(structuredTeams);
+      setTeams((teamsData || []).map((team: any) => ({
+        id: team.id,
+        name: team.name,
+        join_code: team.join_code,
+        require_approval: team.require_approval,
+        role: roleMap.get(team.id) || "member",
+      })));
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to load teams");
     } finally {
@@ -102,51 +93,33 @@ export default function TeamsScreen() {
 
     setSubmittingJoin(true);
     try {
-      // 1. Find the team by code
-      const { data: team, error: findErr } = await supabase
-        .from("teams")
-        .select("*")
-        .eq("join_code", code)
-        .single();
-
+      const { data: team, error: findErr } = await supabase.from("teams").select("*").eq("join_code", code).single();
       if (findErr || !team) {
         Alert.alert("Not Found", "No team was found matching this code.");
-        setSubmittingJoin(false);
         return;
       }
-
-      // Check if user is already a member
-      const isAlreadyIn = teams.some((t) => t.id === team.id);
-      if (isAlreadyIn) {
+      if (teams.some((t) => t.id === team.id)) {
         Alert.alert("Already a Member", "You are already a member of this team.");
-        setSubmittingJoin(false);
         return;
       }
 
       if (team.require_approval) {
-        // Send a join request
         const { error: reqErr } = await supabase.from("join_requests").insert({
           team_id: team.id,
           user_id: user.id,
           status: "pending",
           message: "Please let me join the team via the mobile app.",
         });
-
         if (reqErr) throw reqErr;
-        Alert.alert(
-          "Request Sent",
-          `Your request to join "${team.name}" is pending administrator approval.`
-        );
+        Alert.alert("Request Sent", `Your request to join "${team.name}" is pending administrator approval.`);
       } else {
-        // Join immediately
         const { error: joinErr } = await supabase.from("team_members").insert({
           team_id: team.id,
           user_id: user.id,
           role: "member",
         });
-
         if (joinErr) throw joinErr;
-        Alert.alert("Success", `You have successfully joined "${team.name}"!`);
+        Alert.alert("Joined", `You have joined "${team.name}".`);
         await loadTeams();
       }
       setJoinCodeInput("");
@@ -168,22 +141,15 @@ export default function TeamsScreen() {
     setSubmittingCreate(true);
     try {
       const code = generateJoinCode();
-
-      // Create the team
-      const { data: newTeam, error: createErr } = await supabase
-        .from("teams")
-        .insert({
-          name,
-          join_code: code,
-          created_by: user.id,
-          require_approval: requireApproval,
-        })
-        .select()
-        .single();
-
+      const { error: createErr } = await supabase.from("teams").insert({
+        name,
+        join_code: code,
+        created_by: user.id,
+        require_approval: requireApproval,
+      }).select().single();
       if (createErr) throw createErr;
 
-      Alert.alert("Success", `Team "${name}" created! Join Code: ${code}`);
+      Alert.alert("Team Created", `"${name}" is ready. Invite code: ${code}`);
       setTeamNameInput("");
       setRequireApproval(false);
       await loadTeams();
@@ -194,256 +160,317 @@ export default function TeamsScreen() {
     }
   }
 
-  function renderTeamItem({ item }: { item: TeamWithRole }) {
-    const isAdmin = item.role === "admin";
-    return (
-      <TouchableOpacity
-        style={[styles.card, styles.teamCard]}
-        onPress={() => router.push(`/team/${item.id}`)}
-      >
-        <View style={styles.teamMain}>
-          <View style={styles.teamHeaderRow}>
-            <Text style={styles.teamName}>{item.name}</Text>
-            <View style={[styles.badge, isAdmin ? styles.badgeAdmin : styles.badgeMember]}>
-              <Text style={[styles.badgeText, isAdmin ? styles.badgeTextAdmin : styles.badgeTextMember]}>
-                {isAdmin ? "Admin" : "Member"}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.codeText}>Join Code: {item.join_code}</Text>
-          <View style={styles.detailsRow}>
-            <Shield size={12} color={colors.subtle} style={{ marginRight: 4 }} />
-            <Text style={styles.approvalText}>
-              {item.require_approval ? "Requires Join Approvals" : "Open Join"}
-            </Text>
-          </View>
-        </View>
-        <ArrowRight size={20} color={colors.subtle} style={styles.chevron} />
-      </TouchableOpacity>
-    );
-  }
-
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
-      <View style={styles.mainContainer}>
-        {/* Teams List */}
-        <View style={styles.listSection}>
-          <Text style={styles.sectionHeader}>My Teams</Text>
-          {loading ? (
-            <ActivityIndicator size="large" color={colors.brand} style={{ marginVertical: 30 }} />
-          ) : teams.length > 0 ? (
-            <FlatList
-              data={teams}
-              keyExtractor={(item) => item.id}
-              renderItem={renderTeamItem}
-              refreshing={refreshing}
-              onRefresh={async () => {
-                setRefreshing(true);
-                await loadTeams();
-              }}
-              style={styles.list}
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Users size={32} color={colors.subtle} style={{ marginBottom: theme.spacing.sm }} />
-              <Text style={styles.emptyText}>You haven't joined any teams yet.</Text>
-            </View>
-          )}
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.brand} onRefresh={async () => { setRefreshing(true); await loadTeams(); }} />}
+      >
+        <View style={styles.pageHeader}>
+          <View>
+            <Text style={styles.eyebrow}>Workspace</Text>
+            <Text style={styles.title}>Teams</Text>
+          </View>
+          <View style={styles.summaryPill}>
+            <Users size={15} color={colors.brand} />
+            <Text style={styles.summaryText}>{teams.length}</Text>
+          </View>
         </View>
 
-        {/* Join / Create Section */}
-        <FlatList
-          data={[]}
-          renderItem={null}
-          ListHeaderComponent={
-            <View style={styles.actionContainer}>
-              {/* Join Team */}
-              <View style={[styles.card, styles.actionCard]}>
-                <View style={styles.actionHeader}>
-                  <Users size={20} color={colors.brand} style={{ marginRight: 8 }} />
-                  <Text style={styles.actionTitle}>Join a Team</Text>
-                </View>
-                <Text style={styles.actionDesc}>
-                  Enter the 6-character invite code provided by your team administrator.
-                </Text>
-                <View style={styles.inlineRow}>
-                  <TextInput
-                    style={[styles.input, styles.codeField]}
-                    placeholder="ABCDEF"
-                    placeholderTextColor={colors.subtle}
-                    value={joinCodeInput}
-                    onChangeText={setJoinCodeInput}
-                    autoCapitalize="characters"
-                    maxLength={6}
-                  />
-                  <Host style={styles.joinBtnHost}>
-                    <Button
-                      variant="filled"
-                      onPress={handleJoinTeam}
-                      disabled={submittingJoin}
-                      label="Join" />
-                  </Host>
-                </View>
-              </View>
+        <View style={styles.statsRow}>
+          <StatCard label="Teams" value={String(teams.length)} colors={colors} />
+          <StatCard label="Admin" value={String(adminCount)} colors={colors} />
+          <StatCard label="Member" value={String(Math.max(teams.length - adminCount, 0))} colors={colors} />
+        </View>
 
-              {/* Create Team */}
-              <View style={[styles.card, styles.actionCard]}>
-                <View style={styles.actionHeader}>
-                  <Plus size={20} color={colors.brand} style={{ marginRight: 8 }} />
-                  <Text style={styles.actionTitle}>Create a Team</Text>
-                </View>
-                <Text style={styles.actionDesc}>
-                  Establish a new team and generate custom scheduled warnings for teammates.
-                </Text>
-
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. Engineering Team"
-                  placeholderTextColor={colors.subtle}
-                  value={teamNameInput}
-                  onChangeText={setTeamNameInput}
-                />
-
-                <View style={styles.toggleApproval}>
-                  <Host style={styles.approvalSwitchHost}>
-                    <NativeSwitch
-                      value={requireApproval}
-                      onValueChange={(val) => setRequireApproval(val)}
-                    />
-                  </Host>
-                  <View style={{ flex: 1, marginLeft: theme.spacing.md }}>
-                    <Text style={styles.toggleLabel}>Require join approvals</Text>
-                    <Text style={styles.toggleSublabel}>
-                      Admins must verify new members before they can view reminders.
-                    </Text>
+        <SectionTitle title="My Teams" caption="Open a team to manage reminders and members." colors={colors} />
+        {loading ? (
+          <View style={styles.loadingCard}><ActivityIndicator size="large" color={colors.brand} /></View>
+        ) : teams.length > 0 ? (
+          <View style={styles.teamStack}>
+            {teams.map((item) => {
+              const isAdmin = item.role === "admin";
+              return (
+                <TouchableOpacity key={item.id} style={styles.teamCard} onPress={() => router.push(`/team/${item.id}`)} activeOpacity={0.78}>
+                  <View style={styles.teamIcon}>
+                    <Users size={19} color={colors.brand} />
                   </View>
-                </View>
+                  <View style={styles.teamMain}>
+                    <View style={styles.teamTitleRow}>
+                      <Text style={styles.teamName} numberOfLines={1}>{item.name}</Text>
+                      <View style={[styles.badge, isAdmin ? styles.badgeAdmin : styles.badgeMember]}>
+                        <Text style={[styles.badgeText, isAdmin ? styles.badgeTextAdmin : styles.badgeTextMember]}>{isAdmin ? "Admin" : "Member"}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.detailsRow}>
+                      <Text style={styles.codeText}>{item.join_code}</Text>
+                      <View style={styles.dot} />
+                      <Shield size={12} color={colors.subtle} />
+                      <Text style={styles.approvalText}>{item.require_approval ? "Approval required" : "Open join"}</Text>
+                    </View>
+                  </View>
+                  <ArrowRight size={18} color={colors.subtle} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Users size={30} color={colors.subtle} />
+            <Text style={styles.emptyTitle}>No teams yet</Text>
+            <Text style={styles.emptyText}>Join with an invite code or create a new team below.</Text>
+          </View>
+        )}
 
-                <Host style={styles.createBtnHost}>
-                  <Button
-                    variant="filled"
-                    onPress={handleCreateTeam}
-                    disabled={submittingCreate}
-                    label="Create Team"
-                  />
-                </Host>
-              </View>
+        <SectionTitle title="Join Team" caption="Use the 6-character invite code from an admin." colors={colors} />
+        <View style={styles.actionCard}>
+          <View style={styles.inlineRow}>
+            <TextInput
+              style={[styles.input, styles.codeField]}
+              placeholder="ABCDEF"
+              placeholderTextColor={colors.subtle}
+              value={joinCodeInput}
+              onChangeText={setJoinCodeInput}
+              autoCapitalize="characters"
+              maxLength={6}
+            />
+            <TouchableOpacity style={[styles.compactButton, submittingJoin && styles.disabled]} onPress={handleJoinTeam} disabled={submittingJoin} activeOpacity={0.8}>
+              {submittingJoin ? <ActivityIndicator color={colors.brandFg} /> : <ArrowRight size={18} color={colors.brandFg} />}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <SectionTitle title="Create Team" caption="Set up a team space and share the generated invite code." colors={colors} />
+        <View style={styles.actionCard}>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Engineering Team"
+            placeholderTextColor={colors.subtle}
+            value={teamNameInput}
+            onChangeText={setTeamNameInput}
+          />
+
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleIcon}><Shield size={18} color={colors.success} /></View>
+            <View style={styles.toggleTextBlock}>
+              <Text style={styles.toggleLabel}>Require join approvals</Text>
+              <Text style={styles.toggleSublabel}>Admins review new members before they see reminders.</Text>
             </View>
-          }
-          style={styles.formsList}
-        />
-      </View>
+            <Switch
+              value={requireApproval}
+              onValueChange={setRequireApproval}
+              trackColor={{ false: colors.muted, true: colors.brand }}
+              thumbColor={requireApproval ? colors.brandFg : colors.subtle}
+            />
+          </View>
+
+          <TouchableOpacity style={[styles.primaryButton, submittingCreate && styles.disabled]} onPress={handleCreateTeam} disabled={submittingCreate} activeOpacity={0.82}>
+            {submittingCreate ? <ActivityIndicator color={colors.brandFg} /> : (
+              <>
+                <Plus size={18} color={colors.brandFg} />
+                <Text style={styles.primaryButtonText}>Create Team</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-const getStyles = (colors: ColorPalette) =>
+function SectionTitle({ title, caption, colors }: { title: string; caption: string; colors: ColorPalette }) {
+  const styles = getSectionStyles(colors);
+  return (
+    <View style={styles.sectionTitle}>
+      <Text style={styles.sectionHeader}>{title}</Text>
+      <Text style={styles.sectionCaption}>{caption}</Text>
+    </View>
+  );
+}
+
+function StatCard({ label, value, colors }: { label: string; value: string; colors: ColorPalette }) {
+  const styles = getSectionStyles(colors);
+  return (
+    <View style={styles.statCard}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+const getSectionStyles = (colors: ColorPalette) => StyleSheet.create({
+  sectionTitle: {
+    marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.sm,
+  },
+  sectionHeader: {
+    color: colors.fg,
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: 0,
+  },
+  sectionCaption: {
+    color: colors.subtle,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+  },
+  statValue: {
+    color: colors.fg,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  statLabel: {
+    color: colors.subtle,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+});
+
+const getStyles = (colors: ColorPalette, resolvedTheme: "light" | "dark") =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
       backgroundColor: colors.bg,
     },
-    mainContainer: {
-      flex: 1,
+    scrollContainer: {
       paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.md,
+      paddingBottom: 120,
     },
-    listSection: {
-      maxHeight: "45%",
-      marginBottom: theme.spacing.md,
+    pageHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: theme.spacing.lg,
     },
-    list: {
-      marginTop: theme.spacing.sm,
-    },
-    formsList: {
-      flex: 1,
-    },
-    sectionHeader: {
-      color: colors.fg,
-      fontSize: 18,
+    eyebrow: {
+      color: colors.brand,
+      fontSize: 12,
       fontWeight: "800",
-      letterSpacing: -0.4,
-      marginBottom: theme.spacing.xs,
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
     },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: theme.radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: theme.spacing.lg,
-      marginBottom: theme.spacing.md,
-    },
-    input: {
-      backgroundColor: colors.elevated,
-      borderColor: colors.border,
-      borderWidth: 1,
-      borderRadius: theme.radius.md,
+    title: {
       color: colors.fg,
-      paddingHorizontal: theme.spacing.lg,
-      paddingVertical: theme.spacing.md,
-      fontSize: 15,
-      marginBottom: theme.spacing.md,
+      fontSize: 30,
+      fontWeight: "900",
+      letterSpacing: 0,
+    },
+    summaryPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: theme.radius.full,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+    },
+    summaryText: {
+      color: colors.fg,
+      fontSize: 14,
+      fontWeight: "800",
+    },
+    statsRow: {
+      flexDirection: "row",
+      gap: theme.spacing.sm,
+    },
+    loadingCard: {
+      minHeight: 120,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: theme.radius.md,
+    },
+    teamStack: {
+      gap: theme.spacing.sm,
     },
     teamCard: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingVertical: theme.spacing.md,
+      gap: theme.spacing.md,
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: theme.radius.md,
+      padding: theme.spacing.md,
+      shadowColor: resolvedTheme === "dark" ? "#000" : "#64748B",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: resolvedTheme === "dark" ? 0.12 : 0.05,
+      shadowRadius: 10,
+      elevation: 2,
+    },
+    teamIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: theme.radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(99, 102, 241, 0.12)",
     },
     teamMain: {
       flex: 1,
+      minWidth: 0,
     },
-    teamHeaderRow: {
+    teamTitleRow: {
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: theme.spacing.xs,
+      gap: theme.spacing.sm,
     },
     teamName: {
+      flex: 1,
       color: colors.fg,
       fontSize: 16,
-      fontWeight: "700",
-      marginRight: theme.spacing.sm,
-    },
-    codeText: {
-      color: colors.subtle,
-      fontSize: 13,
-      fontWeight: "500",
-      marginBottom: theme.spacing.xs,
-    },
-    detailsRow: {
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    approvalText: {
-      color: colors.subtle,
-      fontSize: 11,
-      fontWeight: "500",
+      fontWeight: "800",
     },
     badge: {
       paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: theme.radius.sm,
+      paddingVertical: 3,
+      borderRadius: theme.radius.full,
     },
-    badgeAdmin: {
-      backgroundColor: "rgba(129, 140, 248, 0.15)",
+    badgeAdmin: { backgroundColor: "rgba(99, 102, 241, 0.14)" },
+    badgeMember: { backgroundColor: "rgba(100, 116, 139, 0.14)" },
+    badgeText: { fontSize: 10, fontWeight: "800" },
+    badgeTextAdmin: { color: colors.brand },
+    badgeTextMember: { color: colors.subtle },
+    detailsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: 5,
     },
-    badgeMember: {
-      backgroundColor: "rgba(148, 163, 184, 0.15)",
+    codeText: {
+      color: colors.fg,
+      fontSize: 12,
+      fontWeight: "900",
+      letterSpacing: 1.2,
     },
-    badgeText: {
-      fontSize: 10,
-      fontWeight: "700",
+    dot: {
+      width: 3,
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: colors.border,
     },
-    badgeTextAdmin: {
-      color: colors.brand,
-    },
-    badgeTextMember: {
+    approvalText: {
       color: colors.subtle,
+      fontSize: 12,
+      fontWeight: "600",
     },
-    chevron: {
-      marginLeft: theme.spacing.sm,
-    },
-    emptyContainer: {
+    emptyCard: {
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.surface,
@@ -451,73 +478,100 @@ const getStyles = (colors: ColorPalette) =>
       borderWidth: 1,
       borderRadius: theme.radius.md,
       padding: theme.spacing.xl,
-      marginTop: theme.spacing.sm,
+    },
+    emptyTitle: {
+      color: colors.fg,
+      fontSize: 17,
+      fontWeight: "800",
+      marginTop: theme.spacing.md,
     },
     emptyText: {
       color: colors.subtle,
-      fontSize: 14,
-      textAlign: "center",
-    },
-    actionContainer: {
-      paddingTop: theme.spacing.xs,
-      paddingBottom: 100, // Ensure content has room to scroll above the glassy bottom tabs!
-    },
-    actionCard: {
-      marginBottom: theme.spacing.lg,
-    },
-    actionHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: theme.spacing.xs,
-    },
-    actionTitle: {
-      color: colors.fg,
-      fontSize: 16,
-      fontWeight: "700",
-    },
-    actionDesc: {
-      color: colors.subtle,
       fontSize: 13,
       lineHeight: 18,
-      marginBottom: theme.spacing.md,
+      textAlign: "center",
+      marginTop: 4,
+    },
+    actionCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: theme.radius.md,
+      padding: theme.spacing.lg,
     },
     inlineRow: {
       flexDirection: "row",
       alignItems: "center",
+      gap: theme.spacing.sm,
+    },
+    input: {
+      minHeight: 50,
+      backgroundColor: colors.elevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: theme.radius.md,
+      color: colors.fg,
+      paddingHorizontal: theme.spacing.lg,
+      fontSize: 15,
+      marginBottom: theme.spacing.md,
     },
     codeField: {
       flex: 1,
       marginBottom: 0,
-      marginRight: theme.spacing.sm,
-      fontSize: 16,
-      fontWeight: "700",
+      fontSize: 17,
+      fontWeight: "900",
       letterSpacing: 2,
       textAlign: "center",
     },
-    joinBtnHost: {
-      width: 72,
-      height: 48,
+    compactButton: {
+      width: 52,
+      height: 50,
+      borderRadius: theme.radius.md,
+      backgroundColor: colors.brand,
+      alignItems: "center",
+      justifyContent: "center",
     },
-    toggleApproval: {
+    toggleRow: {
       flexDirection: "row",
       alignItems: "center",
       marginBottom: theme.spacing.lg,
+      gap: theme.spacing.md,
     },
-    approvalSwitchHost: {
-      width: 52,
-      height: 32,
+    toggleIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: theme.radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(16, 185, 129, 0.12)",
+    },
+    toggleTextBlock: {
+      flex: 1,
     },
     toggleLabel: {
       color: colors.fg,
       fontSize: 14,
-      fontWeight: "600",
+      fontWeight: "800",
     },
     toggleSublabel: {
       color: colors.subtle,
-      fontSize: 11,
+      fontSize: 12,
+      lineHeight: 16,
       marginTop: 2,
     },
-    createBtnHost: {
-      height: 48,
+    primaryButton: {
+      minHeight: 50,
+      borderRadius: theme.radius.md,
+      backgroundColor: colors.brand,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: theme.spacing.sm,
     },
+    primaryButtonText: {
+      color: colors.brandFg,
+      fontSize: 15,
+      fontWeight: "800",
+    },
+    disabled: { opacity: 0.68 },
   });
