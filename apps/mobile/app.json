@@ -12,6 +12,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
+          "remote-notification",
+          "fetch",
           "remote-notification"
         ]
       }
@@ -23,6 +25,9 @@
       },
       "package": "com.officereminder.mobile",
       "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "VIBRATE",
         "RECEIVE_BOOT_COMPLETED",
         "WAKE_LOCK",
         "VIBRATE"
@@ -76,8 +81,38 @@
             }
           ]
         }
-      ]
+      ],
+      "expo-audio"
     ],
-    "scheme": "officereminder"
+    "scheme": "officereminder",
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.officereminder.mobile.ExpoWidgetsTarget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.officereminder.mobile"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "e8634232-d08d-4fb8-90a4-3a3dce3b663b"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e8634232-d08d-4fb8-90a4-3a3dce3b663b"
+    }
   }
 }
