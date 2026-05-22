@@ -131,6 +131,9 @@ importers:
       react-native-screens:
         specifier: ^4.25.1
         version: 4.25.1(react-native@0.85.3(@babel/core@7.29.0)(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+      react-native-svg:
+        specifier: ^15.15.5
+        version: 15.15.5(react-native@0.85.3(@babel/core@7.29.0)(@react-native/metro-config@0.85.3(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       rrule:
         specifier: ^2.8.1
         version: 2.8.1

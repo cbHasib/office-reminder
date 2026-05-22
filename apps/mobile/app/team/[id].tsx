@@ -35,7 +35,7 @@ import {
   CheckSquare,
 } from "lucide-react-native";
 import type { Reminder, Team, TeamMember, User, JoinRequest } from "../../src/lib/shared";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const WEEKDAYS = [
   { label: "Su", value: "SU" },
@@ -52,7 +52,7 @@ export default function TeamDetailScreen() {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const styles = getStyles(colors);
-
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [team, setTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -481,9 +481,9 @@ export default function TeamDetailScreen() {
   }
 
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
+    <View style={[styles.safeArea]}>
       {/* Header Bar */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <ChevronLeft size={24} color={colors.fg} />
         </TouchableOpacity>
@@ -743,7 +743,7 @@ export default function TeamDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
