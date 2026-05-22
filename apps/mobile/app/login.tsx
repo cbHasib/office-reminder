@@ -10,7 +10,7 @@ import {
   View,
   StyleSheet,
 } from "react-native";
-import { Host, Button } from "@expo/ui";
+// Removed unused @expo/ui imports
 import { supabase } from "../src/lib/supabase";
 import { theme } from "../src/lib/theme";
 import { useAppTheme, ColorPalette } from "../src/lib/appearanceContext";
@@ -152,13 +152,22 @@ export default function LoginScreen() {
                 <ActivityIndicator color={colors.brand} />
               </View>
             ) : (
-              <Host style={styles.authBtnHost}>
-                <Button
-                  variant="filled"
-                  onPress={handleAuth}
-                  label={isSignUp ? "Sign Up" : "Log In"}
-                />
-              </Host>
+              <TouchableOpacity
+                style={{
+                  height: 48,
+                  backgroundColor: colors.brand,
+                  borderRadius: theme.radius.md,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: theme.spacing.xs,
+                }}
+                onPress={handleAuth}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: colors.brandFg, fontSize: 16, fontWeight: "600" }}>
+                  {isSignUp ? "Sign Up" : "Log In"}
+                </Text>
+              </TouchableOpacity>
             )}
 
             <TouchableOpacity

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { ActivityIndicator, View, StyleSheet, AppState } from "react-native";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Host } from "@expo/ui";
+// Removed unused @expo/ui imports
 import { supabase } from "../src/lib/supabase";
 import { theme } from "../src/lib/theme";
 import type { User, UserSettings } from "../src/lib/shared";
@@ -40,9 +40,9 @@ export const useSettings = () => useContext(SettingsContext);
 export default function RootLayout() {
   return (
     <AppearanceProvider>
-      <Host style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <RootLayoutContent />
-      </Host>
+      </View>
     </AppearanceProvider>
   );
 }

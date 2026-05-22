@@ -5,4 +5,7 @@ export type ReminderLiveActivityPayload = {
   startsAtISO: string;
   warningAtISO: string;
   leadMinutes: number;
+  startsAtFormatted?: string;
+  warningAtFormatted?: string;
 };
+

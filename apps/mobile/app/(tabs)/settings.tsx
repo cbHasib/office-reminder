@@ -31,7 +31,9 @@ import {
   Moon,
   Laptop,
   User,
+  Sparkles,
 } from "lucide-react-native";
+import { syncReminderLiveActivity } from "../../src/lib/reminderLiveActivity";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const ADVANCE_OPTIONS = [
@@ -50,6 +52,54 @@ export default function SettingsScreen() {
   const styles = getStyles(colors, resolvedTheme);
 
   const [updating, setUpdating] = useState(false);
+  const [demoActive, setDemoActive] = useState(false);
+  const [demoUpdating, setDemoUpdating] = useState(false);
+
+  async function toggleDemoLiveActivity() {
+    setDemoUpdating(true);
+    try {
+      if (demoActive) {
+        await syncReminderLiveActivity(null, true);
+        setDemoActive(false);
+      } else {
+        const now = Date.now();
+        const startsAt = new Date(now + 2 * 60 * 1000); // 2 minutes from now
+        const warningAt = new Date(now);
+        
+        let hours = startsAt.getHours();
+        const minutes = startsAt.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const minStr = minutes < 10 ? '0' + minutes : minutes;
+        const startsAtFormatted = `${hours}:${minStr} ${ampm}`;
+
+        let wHours = warningAt.getHours();
+        const wMinutes = warningAt.getMinutes();
+        const wAmpm = wHours >= 12 ? 'PM' : 'AM';
+        wHours = wHours % 12;
+        wHours = wHours ? wHours : 12;
+        const wMinStr = wMinutes < 10 ? '0' + wMinutes : wMinutes;
+        const warningAtFormatted = `${wHours}:${wMinStr} ${wAmpm}`;
+
+        await syncReminderLiveActivity({
+          reminderId: "demo-reminder-id",
+          title: "Practice Standup",
+          description: "Active reminder countdown in real-time.",
+          startsAtISO: startsAt.toISOString(),
+          warningAtISO: warningAt.toISOString(),
+          leadMinutes: 2,
+          startsAtFormatted,
+          warningAtFormatted,
+        }, true);
+        setDemoActive(true);
+      }
+    } catch (err: any) {
+      Alert.alert("Live Activity Error", err.message || "Failed to trigger Live Activity.");
+    } finally {
+      setDemoUpdating(false);
+    }
+  }
 
   async function updateSetting(updates: any) {
     if (!user) return;
@@ -253,6 +303,34 @@ export default function SettingsScreen() {
                   );
                 })}
               </View>
+            </View>
+
+            <View style={styles.groupDivider} />
+
+            {/* Test Live Activity Control Row */}
+            <View style={styles.groupRow}>
+              <View style={[styles.iconCircle, { backgroundColor: "rgba(245, 158, 11, 0.12)" }]}>
+                <Sparkles size={18} color="#F59E0B" />
+              </View>
+              <View style={styles.groupRowText}>
+                <Text style={styles.groupRowLabel}>Test Live Activity</Text>
+                <Text style={styles.groupRowDesc}>
+                  {demoActive ? "Active: view Lock Screen / Dynamic Island" : "Launch a 2-minute mock countdown widget"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.testSoundBtn,
+                  { backgroundColor: demoActive ? colors.danger : colors.brand }
+                ]}
+                onPress={toggleDemoLiveActivity}
+                disabled={demoUpdating}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.testSoundText, { color: colors.brandFg }]}>
+                  {demoActive ? "Stop" : "Test"}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

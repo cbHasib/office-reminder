@@ -4,6 +4,9 @@ export type { ReminderLiveActivityPayload } from "./reminderLiveActivity.types";
 
 export async function syncReminderLiveActivity(
   _payload: ReminderLiveActivityPayload | null,
+  throwOnError?: boolean,
 ): Promise<void> {
-  // iOS implementation lives in reminderLiveActivity.ios.tsx.
+  if (throwOnError) {
+    throw new Error("[Live Activity Stub] syncReminderLiveActivity called. Metro resolved the generic .tsx stub instead of .ios.tsx!");
+  }
 }

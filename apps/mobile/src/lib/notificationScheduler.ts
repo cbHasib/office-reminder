@@ -160,13 +160,33 @@ export async function syncMobileScheduler(userId: string): Promise<number> {
         const fireAtMs = eventAtMs - lead * 60_000;
 
         if (eventAtMs > now.getTime()) {
+          const warningAtDate = new Date(Math.max(now.getTime(), fireAtMs));
+          
+          let hours = occ.getHours();
+          const minutes = occ.getMinutes();
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          const minStr = minutes < 10 ? '0' + minutes : minutes;
+          const startsAtFormatted = `${hours}:${minStr} ${ampm}`;
+
+          let wHours = warningAtDate.getHours();
+          const wMinutes = warningAtDate.getMinutes();
+          const wAmpm = wHours >= 12 ? 'PM' : 'AM';
+          wHours = wHours % 12;
+          wHours = wHours ? wHours : 12;
+          const wMinStr = wMinutes < 10 ? '0' + wMinutes : wMinutes;
+          const warningAtFormatted = `${wHours}:${wMinStr} ${wAmpm}`;
+
           const liveActivityPayload = {
             reminderId: r.id,
             title: r.title,
             description: r.description || "",
             startsAtISO: occ.toISOString(),
-            warningAtISO: new Date(Math.max(now.getTime(), fireAtMs)).toISOString(),
+            warningAtISO: warningAtDate.toISOString(),
             leadMinutes: lead,
+            startsAtFormatted,
+            warningAtFormatted,
           };
           if (
             !nearestActivity ||
@@ -174,6 +194,37 @@ export async function syncMobileScheduler(userId: string): Promise<number> {
           ) {
             nearestActivity = liveActivityPayload;
           }
+        }
+
+        // Schedule the "Happening now" notification at the actual event start time
+        if (eventAtMs > now.getTime()) {
+          const sound = notificationSoundName(settings);
+          const channelId = await ensureNotificationChannel(sound);
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: r.title,
+              subtitle: "Happening now",
+              body: r.description || "This event is starting now.",
+              sound,
+              ...(Platform.OS === "android"
+                ? {
+                    priority: Notifications.AndroidNotificationPriority.HIGH,
+                    color: NOTIFICATION_COLOR,
+                  }
+                : {}),
+              data: {
+                reminderId: r.id,
+                eventAtISO: occ.toISOString(),
+                isStartingNow: true,
+              },
+            },
+            trigger: {
+              date: occ,
+              type: Notifications.SchedulableTriggerInputTypes.DATE,
+              ...(channelId ? { channelId } : {}),
+            },
+          });
+          scheduledCount++;
         }
 
         // Skip occurrences where warning lead time has already passed

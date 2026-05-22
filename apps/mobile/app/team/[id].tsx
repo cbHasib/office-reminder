@@ -75,6 +75,29 @@ export default function TeamDetailScreen() {
 
   async function loadTeamData() {
     if (!user || !teamId) return;
+
+    // Handle mock settings demo ID or any invalid UUID inputs gracefully
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (teamId === "demo-reminder-id") {
+      Alert.alert(
+        "Demo Mode",
+        "This is a mock Live Activity triggered from Settings. There is no database team associated with it."
+      );
+      setLoading(false);
+      router.back();
+      return;
+    }
+
+    if (!uuidRegex.test(teamId)) {
+      Alert.alert(
+        "Invalid Link",
+        "The requested team or reminder could not be found."
+      );
+      setLoading(false);
+      router.back();
+      return;
+    }
+
     try {
       // 1. Fetch team info
       const { data: teamData, error: teamErr } = await supabase

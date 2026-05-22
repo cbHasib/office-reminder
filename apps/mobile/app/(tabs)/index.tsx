@@ -202,16 +202,36 @@ export default function HomeScreen() {
       const fireTime = nearestEvent.fireAt.getTime();
       const eventTime = nearestEvent.occurrence.getTime();
 
-      if (now >= fireTime && now <= eventTime) {
+      if (now >= fireTime && now <= eventTime + 60_000) {
+        const isHappeningNow = now > eventTime;
+
+        let hours = nearestEvent.occurrence.getHours();
+        const minutes = nearestEvent.occurrence.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const minStr = minutes < 10 ? '0' + minutes : minutes;
+        const startsAtFormatted = isHappeningNow ? "Now" : `${hours}:${minStr} ${ampm}`;
+
+        let wHours = nearestEvent.fireAt.getHours();
+        const wMinutes = nearestEvent.fireAt.getMinutes();
+        const wAmpm = wHours >= 12 ? 'PM' : 'AM';
+        wHours = wHours % 12;
+        wHours = wHours ? wHours : 12;
+        const wMinStr = wMinutes < 10 ? '0' + wMinutes : wMinutes;
+        const warningAtFormatted = `${wHours}:${wMinStr} ${wAmpm}`;
+
         await syncReminderLiveActivity({
           reminderId: nearestEvent.reminderId,
           title: nearestEvent.title,
-          description: nearestEvent.description,
+          description: isHappeningNow ? "Happening now!" : nearestEvent.description,
           startsAtISO: nearestEvent.occurrence.toISOString(),
           warningAtISO: nearestEvent.fireAt.toISOString(),
           leadMinutes: nearestEvent.leadMinutes,
+          startsAtFormatted,
+          warningAtFormatted,
         });
-      } else if (now > eventTime && !disposed) {
+      } else if (now > eventTime + 60_000 && !disposed) {
         await syncReminderLiveActivity(null);
       }
     }
