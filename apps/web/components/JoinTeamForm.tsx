@@ -22,52 +22,39 @@ export default function JoinTeamForm() {
     const upper = code.trim().toUpperCase();
 
     try {
-      const { data: team, error: lookupErr } = await supabase
-        .from("teams")
-        .select("id, name, require_approval")
-        .eq("join_code", upper)
-        .single();
-      if (lookupErr || !team) {
-        setError("No team with that code.");
-        return;
-      }
-      const { data: { user } } = await supabase.auth.getUser();
+      // All validation (code lookup, membership, require_approval) happens
+      // server-side — join codes are no longer client-readable.
+      const { data, error: rpcErr } = await supabase.rpc("join_team_with_code", {
+        p_code: upper,
+        p_message: message.trim() || null,
+      });
+      if (rpcErr) { setError(rpcErr.message); return; }
 
-      // Already a member?
-      const { data: existing } = await supabase
-        .from("team_members")
-        .select("team_id")
-        .eq("team_id", team.id)
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      if (existing) {
-        router.push(`/dashboard/teams/${team.id}`);
-        router.refresh();
-        return;
-      }
-
-      if (team.require_approval) {
-        const { error: reqErr } = await supabase
-          .from("join_requests")
-          .insert({ team_id: team.id, user_id: user!.id, message: message.trim() || null });
-        if (reqErr) {
-          if (reqErr.code === "23505") setInfo(`Request already pending for "${team.name}".`);
-          else setError(reqErr.message);
-          return;
-        }
-        setInfo(`Request sent to ${team.name}. An admin will review it.`);
-        router.refresh();
-      } else {
-        const { error: joinErr } = await supabase
-          .from("team_members")
-          .insert({ team_id: team.id, user_id: user!.id, role: "member" });
-        if (joinErr) {
-          if (joinErr.code === "23505") setError("You're already in that team.");
-          else setError(joinErr.message);
-          return;
-        }
-        router.push(`/dashboard/teams/${team.id}`);
-        router.refresh();
+      const result = data as { status: string; team_id?: string; team_name?: string };
+      switch (result.status) {
+        case "not_found":
+          setError("No team with that code.");
+          break;
+        case "rate_limited":
+          setError("Too many attempts — wait a few minutes and try again.");
+          break;
+        case "already_member":
+          router.push(`/dashboard/teams/${result.team_id}`);
+          router.refresh();
+          break;
+        case "request_pending":
+          setInfo(`Request already pending for "${result.team_name}".`);
+          break;
+        case "request_sent":
+          setInfo(`Request sent to ${result.team_name}. An admin will review it.`);
+          router.refresh();
+          break;
+        case "joined":
+          router.push(`/dashboard/teams/${result.team_id}`);
+          router.refresh();
+          break;
+        default:
+          setError("Unexpected response — please try again.");
       }
     } finally {
       setLoading(false);

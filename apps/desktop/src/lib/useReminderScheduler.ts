@@ -10,6 +10,14 @@ interface Params {
   userId: string;
 }
 
+/** JSON of the last event list handed to Rust — used to skip no-op syncs. */
+let lastSyncedEvents: string | null = null;
+
+/** Forget the last-synced snapshot (call when local state is wiped, e.g. logout). */
+export function resetSchedulerSyncCache(): void {
+  lastSyncedEvents = null;
+}
+
 interface ActiveEvent {
   id: string;
   reminderId: string;
@@ -74,15 +82,21 @@ export function useReminderScheduler({ reminders, settings, userId }: Params) {
         // Sort events chronologically so the scheduler processes the nearest ones first
         events.sort((a, b) => a.fireAtMs - b.fireAtMs);
 
+        // Skip the IPC + disk write when nothing actually changed (refetches
+        // produce new array identities for identical data all the time).
+        const serialized = JSON.stringify(events);
+        if (serialized === lastSyncedEvents) return;
+
         await invoke("save_active_events", { events });
+        lastSyncedEvents = serialized;
       } catch (err) {
         console.error("Failed to sync background scheduler with Rust:", err);
       }
     }
 
     syncScheduler();
-    
-    // Refresh the active occurrences list every hour
+
+    // Refresh the active occurrences list every hour (rolls the 7-day window forward)
     const intervalId = window.setInterval(syncScheduler, 60 * 60_000);
     return () => window.clearInterval(intervalId);
   }, [reminders, settings, userId]);

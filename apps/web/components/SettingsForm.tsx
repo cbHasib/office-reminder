@@ -18,9 +18,20 @@ export default function SettingsForm({ initial }: { initial: UserSettings }) {
   async function save() {
     setSaving(true); setError(null); setSaved(false);
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaving(false); setError("Not signed in."); return; }
+    // Upsert only the columns this form owns — spreading the whole render-time
+    // snapshot would silently revert theme / muted_reminder_ids changes made
+    // elsewhere (e.g. in the desktop app) since the page loaded.
     const { error } = await supabase
       .from("user_settings")
-      .upsert({ ...s, user_id: user!.id });
+      .upsert({
+        user_id: user.id,
+        overlay_position: s.overlay_position,
+        dismissible: s.dismissible,
+        sound_enabled: s.sound_enabled,
+        sound_name: s.sound_name,
+        advance_minutes_override: s.advance_minutes_override,
+      });
     setSaving(false);
     if (error) setError(error.message);
     else { setSaved(true); setTimeout(() => setSaved(false), 1800); }

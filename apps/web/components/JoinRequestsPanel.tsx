@@ -33,7 +33,9 @@ export default function JoinRequestsPanel({
     router.refresh();
   }
 
-  if (!requireApproval) {
+  // Keep showing any outstanding requests even when approval was turned off
+  // afterwards — otherwise they linger unresolvable behind the header badge.
+  if (!requireApproval && rows.length === 0) {
     return (
       <div className="card card-pad text-sm text-subtle">
         Approval isn't required — new members join with the code instantly.{" "}

@@ -79,7 +79,12 @@ const CIRC = 2 * Math.PI * RADIUS;
 
 function OverlayContent({ payload }: { payload: OverlayPayload }) {
   const [now, setNow] = useState(() => new Date());
-  const [zeroSoundPlayed, setZeroSoundPlayed] = useState(false);
+  // If we mount at/after the event time, the "sound on open" effect already
+  // covers this commit — start with the zero-sound marked played so both
+  // effects can't fire the sound twice simultaneously.
+  const [zeroSoundPlayed, setZeroSoundPlayed] = useState(
+    () => new Date(payload.eventAtISO).getTime() <= Date.now(),
+  );
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
@@ -162,7 +167,7 @@ function OverlayContent({ payload }: { payload: OverlayPayload }) {
       </div>
 
       {showDismiss && (
-        <button className="overlay-dismiss" onClick={closeMyself} title="Dismiss">
+        <button className="overlay-dismiss" onClick={dismissOverlay} title="Dismiss">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6">
             <path d="M2 2l6 6M8 2l-6 6" />
           </svg>
@@ -170,6 +175,13 @@ function OverlayContent({ payload }: { payload: OverlayPayload }) {
       )}
     </div>
   );
+}
+
+/** User dismissal: persist it in Rust so the reminder can't resurrect after
+ *  an app restart within its fire window, then close the window. */
+async function dismissOverlay(): Promise<void> {
+  try { await invoke("dismiss_current_overlay"); } catch {}
+  await closeMyself();
 }
 
 function ringText(ms: number): string {

@@ -8,9 +8,16 @@ if (!url || !anon) {
   console.warn("Supabase env vars missing — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY");
 }
 
-export const supabase = createClient(url ?? "", anon ?? "", {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+// createClient throws on empty strings, which would crash the whole app at
+// module load; syntactically valid placeholders let the UI render (requests
+// then fail visibly, matching the warning above).
+export const supabase = createClient(
+  url || "https://placeholder.supabase.co",
+  anon || "public-anon-key-missing",
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
   },
-});
+);

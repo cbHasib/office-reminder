@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
-import { generateJoinCode } from "@office-reminder/shared";
 
 export default function CreateTeamForm() {
   const supabase = createClient();
@@ -25,23 +24,14 @@ export default function CreateTeamForm() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setError("Not authenticated"); return; }
 
-      // Try a few times in case the random join_code collides
-      let attempt = 0;
-      let inserted: any = null;
-      let lastErr: any = null;
-      while (attempt < 5 && !inserted) {
-        const join_code = generateJoinCode();
-        const { data, error } = await supabase
-          .from("teams")
-          .insert({ name: name.trim(), join_code, created_by: user.id })
-          .select()
-          .single();
-        if (error && error.code === "23505") { attempt++; continue; }
-        lastErr = error;
-        inserted = data;
-        break;
-      }
-      if (!inserted) { setError(lastErr?.message ?? "Could not create team"); return; }
+      // The join code is assigned server-side (DB trigger) — never sent by
+      // the client.
+      const { data: inserted, error } = await supabase
+        .from("teams")
+        .insert({ name: name.trim(), created_by: user.id })
+        .select()
+        .single();
+      if (error || !inserted) { setError(error?.message ?? "Could not create team"); return; }
       router.push(`/dashboard/teams/${inserted.id}`);
       router.refresh();
     } finally {

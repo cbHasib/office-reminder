@@ -131,12 +131,5 @@ export const SOUND_LABELS: Record<SoundName, string> = {
   alert: "Alert — attention-grabbing",
 };
 
-/** Generate a join code: 6 chars, Crockford base32 (no I/L/O/U). */
-export function generateJoinCode(): string {
-  const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return code;
-}
+// Join codes are generated server-side only (public.gen_join_code() in
+// supabase/migrations/0005_secure_join.sql) — clients never pick them.

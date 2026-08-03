@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
-import { generateJoinCode } from "@office-reminder/shared";
 
 interface TeamLite {
   id: string;
@@ -48,15 +47,11 @@ export default function TeamSettingsForm({ team }: { team: TeamLite }) {
 
   async function regenCode() {
     if (!confirm("Generate a new join code? The old code will stop working immediately.")) return;
-    // Try a few times to avoid collisions.
-    for (let i = 0; i < 5; i++) {
-      const newCode = generateJoinCode();
-      const { error } = await supabase
-        .from("teams").update({ join_code: newCode }).eq("id", team.id);
-      if (!error) { setCode(newCode); router.refresh(); return; }
-      if (error.code !== "23505") { alert(error.message); return; }
-    }
-    alert("Couldn't generate a unique code — try again.");
+    // The code is generated server-side; clients never pick it.
+    const { data, error } = await supabase.rpc("regenerate_join_code", { p_team_id: team.id });
+    if (error) { alert(error.message); return; }
+    setCode(data as string);
+    router.refresh();
   }
 
   async function deleteTeam() {

@@ -114,6 +114,28 @@ jobs:
             echo "APPLE_TEAM_ID=$APPLE_TEAM_ID_S"
           } >> "$GITHUB_ENV"
 
+      # macOS updater artifacts are only published for Developer-ID-signed
+      # builds. Ad-hoc signatures have no stable identity, so auto-replacing
+      # an installed app with a differently-signed bundle resets TCC grants
+      # (notifications, login item) and can fail on macOS 13+. Unsigned macOS
+      # releases therefore ship without darwin entries in latest.json — the
+      # in-app banner still points users at the download page. When
+      # SIGN_MACOS=true, drop the ad-hoc "-" from the config so the bundler
+      # uses the Developer ID identity from APPLE_SIGNING_IDENTITY.
+      - name: Compute Tauri build args
+        id: buildargs
+        shell: bash
+        run: |
+          EXTRA=""
+          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
+            if [[ "${{ vars.SIGN_MACOS }}" == "true" ]]; then
+              EXTRA=' --config {"bundle":{"macOS":{"signingIdentity":null}}}'
+            else
+              EXTRA=' --config {"bundle":{"createUpdaterArtifacts":false}}'
+            fi
+          fi
+          echo "args=${{ matrix.args }}$EXTRA" >> "$GITHUB_OUTPUT"
+
       - name: Build Tauri bundle (& publish release if tagged)
         uses: tauri-apps/tauri-action@v0
         env:
@@ -133,6 +155,8 @@ jobs:
             - First launch: macOS may say **"unidentified developer"**. Right-click the app → **Open** → **Open**.
             - If you instead see **"is damaged and can't be opened"**, run once:
               `xattr -cr "/Applications/Office Reminder.app"`
+            - Note: in-app auto-update on macOS is available only for signed releases;
+              unsigned builds update by downloading the new `.dmg` from this page.
 
             ### Windows
             - `*_x64-setup.exe` or `*_x64_en-US.msi`
@@ -145,7 +169,7 @@ jobs:
             Built from commit ${{ github.sha }}.
           releaseDraft: false
           prerelease:   false
-          args: ${{ matrix.args }}
+          args: ${{ steps.buildargs.outputs.args }}
 
       - name: Upload installers as workflow artifacts (build-only runs)
         if: needs.setup.outputs.release_tag == ''

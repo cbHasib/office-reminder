@@ -18,7 +18,6 @@ import { useAuth } from "../_layout";
 import { supabase } from "../../src/lib/supabase";
 import { theme } from "../../src/lib/theme";
 import { useAppTheme, ColorPalette } from "../../src/lib/appearanceContext";
-import { generateJoinCode } from "../../src/lib/shared";
 
 interface TeamWithRole {
   id: string;
@@ -92,34 +91,38 @@ export default function TeamsScreen() {
 
     setSubmittingJoin(true);
     try {
-      const { data: team, error: findErr } = await supabase.from("teams").select("*").eq("join_code", code).single();
-      if (findErr || !team) {
-        Alert.alert("Not Found", "No team was found matching this code.");
-        return;
-      }
-      if (teams.some((t) => t.id === team.id)) {
-        Alert.alert("Already a Member", "You are already a member of this team.");
-        return;
-      }
+      // All validation (code lookup, membership, require_approval) happens
+      // server-side — join codes are no longer client-readable.
+      const { data, error: rpcErr } = await supabase.rpc("join_team_with_code", {
+        p_code: code,
+        p_message: "Please let me join the team via the mobile app.",
+      });
+      if (rpcErr) throw rpcErr;
 
-      if (team.require_approval) {
-        const { error: reqErr } = await supabase.from("join_requests").insert({
-          team_id: team.id,
-          user_id: user.id,
-          status: "pending",
-          message: "Please let me join the team via the mobile app.",
-        });
-        if (reqErr) throw reqErr;
-        Alert.alert("Request Sent", `Your request to join "${team.name}" is pending administrator approval.`);
-      } else {
-        const { error: joinErr } = await supabase.from("team_members").insert({
-          team_id: team.id,
-          user_id: user.id,
-          role: "member",
-        });
-        if (joinErr) throw joinErr;
-        Alert.alert("Joined", `You have joined "${team.name}".`);
-        await loadTeams();
+      const result = data as { status: string; team_id?: string; team_name?: string };
+      switch (result.status) {
+        case "not_found":
+          Alert.alert("Not Found", "No team was found matching this code.");
+          return;
+        case "rate_limited":
+          Alert.alert("Too Many Attempts", "Please wait a few minutes and try again.");
+          return;
+        case "already_member":
+          Alert.alert("Already a Member", "You are already a member of this team.");
+          return;
+        case "request_pending":
+          Alert.alert("Request Pending", `Your request to join "${result.team_name}" is already awaiting approval.`);
+          return;
+        case "request_sent":
+          Alert.alert("Request Sent", `Your request to join "${result.team_name}" is pending administrator approval.`);
+          break;
+        case "joined":
+          Alert.alert("Joined", `You have joined "${result.team_name}".`);
+          await loadTeams();
+          break;
+        default:
+          Alert.alert("Join Error", "Unexpected response — please try again.");
+          return;
       }
       setJoinCodeInput("");
     } catch (err: any) {
@@ -139,16 +142,15 @@ export default function TeamsScreen() {
 
     setSubmittingCreate(true);
     try {
-      const code = generateJoinCode();
-      const { error: createErr } = await supabase.from("teams").insert({
+      // The join code is assigned server-side (DB trigger) — never sent by the client.
+      const { data: created, error: createErr } = await supabase.from("teams").insert({
         name,
-        join_code: code,
         created_by: user.id,
         require_approval: requireApproval,
       }).select().single();
       if (createErr) throw createErr;
 
-      Alert.alert("Team Created", `"${name}" is ready. Invite code: ${code}`);
+      Alert.alert("Team Created", `"${name}" is ready. Invite code: ${created?.join_code ?? "—"}`);
       setTeamNameInput("");
       setRequireApproval(false);
       await loadTeams();

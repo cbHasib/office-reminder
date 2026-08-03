@@ -20,10 +20,15 @@ export default function AccountForm({
   async function saveProfile() {
     setSavingProfile(true); setProfileMsg(null);
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setSavingProfile(false);
+      setProfileMsg({ kind: "err", text: "Not signed in." });
+      return;
+    }
     const { error } = await supabase
       .from("users")
       .update({ display_name: displayName })
-      .eq("id", user!.id);
+      .eq("id", user.id);
     setSavingProfile(false);
     setProfileMsg(error
       ? { kind: "err", text: error.message }
@@ -48,7 +53,10 @@ export default function AccountForm({
     });
     if (signinErr) {
       setSavingPwd(false);
-      setPwdMsg({ kind: "err", text: "Current password is wrong." });
+      // Only credential failures mean a wrong password — surface anything
+      // else (network, rate limit) as-is instead of blaming the password.
+      const wrongPwd = signinErr.message.toLowerCase().includes("invalid login credentials");
+      setPwdMsg({ kind: "err", text: wrongPwd ? "Current password is wrong." : signinErr.message });
       return;
     }
 

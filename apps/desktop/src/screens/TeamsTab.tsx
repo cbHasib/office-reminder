@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { generateJoinCode } from "@office-reminder/shared";
 import TeamDetailView from "./TeamDetailView";
 
 interface TeamLite {
@@ -198,19 +197,13 @@ function CreateTeamForm({ userId, onCreated }: { userId: string; onCreated: () =
     submitting.current = true;
     setLoading(true); setErr(null);
     try {
-      let inserted: any = null;
-      let lastErr: any = null;
-      for (let i = 0; i < 5 && !inserted; i++) {
-        const join_code = generateJoinCode();
-        const { data, error } = await supabase
-          .from("teams")
-          .insert({ name: name.trim(), join_code, created_by: userId })
-          .select()
-          .single();
-        if (error && error.code === "23505") continue;
-        lastErr = error; inserted = data; break;
-      }
-      if (!inserted) { setErr(lastErr?.message ?? "Could not create team"); return; }
+      // The join code is assigned server-side (DB trigger) — never sent by the client.
+      const { data: inserted, error } = await supabase
+        .from("teams")
+        .insert({ name: name.trim(), created_by: userId })
+        .select()
+        .single();
+      if (error || !inserted) { setErr(error?.message ?? "Could not create team"); return; }
       setName("");
       onCreated();
     } finally {
@@ -249,37 +242,39 @@ function JoinTeamForm({ userId, onChanged }: { userId: string; onChanged: () => 
     setLoading(true); setErr(null); setInfo(null);
     try {
       const upper = code.trim().toUpperCase();
-      const { data: team, error: lookErr } = await supabase
-        .from("teams").select("id, name, require_approval").eq("join_code", upper).single();
-      if (lookErr || !team) { setErr("No team with that code."); return; }
+      // All validation (code lookup, membership, require_approval) happens
+      // server-side — join codes are no longer client-readable.
+      const { data, error: rpcErr } = await supabase.rpc("join_team_with_code", {
+        p_code: upper,
+        p_message: message.trim() || null,
+      });
+      if (rpcErr) { setErr(rpcErr.message); return; }
 
-      const { data: existing } = await supabase
-        .from("team_members").select("team_id")
-        .eq("team_id", team.id).eq("user_id", userId).maybeSingle();
-      if (existing) { setInfo(`You're already in ${team.name}.`); return; }
-
-      if (team.require_approval) {
-        const { error } = await supabase
-          .from("join_requests")
-          .insert({ team_id: team.id, user_id: userId, message: message.trim() || null });
-        if (error) {
-          if (error.code === "23505") setInfo(`Request already pending for ${team.name}.`);
-          else setErr(error.message);
+      const result = data as { status: string; team_id?: string; team_name?: string };
+      switch (result.status) {
+        case "not_found":
+          setErr("No team with that code.");
           return;
-        }
-        setCode(""); setMessage("");
-        setInfo(`Request sent to ${team.name}.`);
-      } else {
-        const { error } = await supabase
-          .from("team_members")
-          .insert({ team_id: team.id, user_id: userId, role: "member" });
-        if (error) {
-          if (error.code === "23505") setInfo(`You're already in ${team.name}.`);
-          else setErr(error.message);
+        case "rate_limited":
+          setErr("Too many attempts — wait a few minutes and try again.");
           return;
-        }
-        setCode("");
-        setInfo(`Joined ${team.name}.`);
+        case "already_member":
+          setInfo(`You're already in ${result.team_name}.`);
+          return;
+        case "request_pending":
+          setInfo(`Request already pending for ${result.team_name}.`);
+          return;
+        case "request_sent":
+          setCode(""); setMessage("");
+          setInfo(`Request sent to ${result.team_name}.`);
+          break;
+        case "joined":
+          setCode("");
+          setInfo(`Joined ${result.team_name}.`);
+          break;
+        default:
+          setErr("Unexpected response — please try again.");
+          return;
       }
       onChanged();
     } finally {

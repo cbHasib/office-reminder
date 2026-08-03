@@ -34,6 +34,7 @@ export default function Layout({ session }: { session: Session }) {
 
   useEffect(() => {
     let mounted = true;
+    let debounceId: number | undefined;
 
     async function refetch() {
       const { data } = await supabase
@@ -42,12 +43,19 @@ export default function Layout({ session }: { session: Session }) {
       firstSyncDone.current = true;
     }
 
+    // Realtime events arrive in bursts (e.g. one edit fires UPDATE + team
+    // rows); coalesce them into a single refetch.
+    function refetchSoon() {
+      window.clearTimeout(debounceId);
+      debounceId = window.setTimeout(refetch, 400);
+    }
+
     refetch();
 
     const chan = supabase.channel("rt-reminders")
       .on("postgres_changes",
           { event: "INSERT", schema: "public", table: "reminders" },
-          async (payload) => {
+          (payload) => {
             const r = payload.new as Reminder;
             if (firstSyncDone.current && r.created_by !== userId) {
               const when = new Date(r.scheduled_at);
@@ -59,21 +67,26 @@ export default function Layout({ session }: { session: Session }) {
                 r.rrule ? `${r.title} • repeats from ${whenStr}` : `${r.title} • ${whenStr}`,
               );
             }
-            refetch();
+            refetchSoon();
           })
       .on("postgres_changes",
           { event: "UPDATE", schema: "public", table: "reminders" },
-          () => refetch())
+          () => refetchSoon())
       .on("postgres_changes",
           { event: "DELETE", schema: "public", table: "reminders" },
-          () => refetch())
+          () => refetchSoon())
       .on("postgres_changes",
           { event: "*", schema: "public", table: "team_members", filter: `user_id=eq.${userId}` },
-          () => refetch())
+          () => refetchSoon())
       .subscribe();
 
     const id = window.setInterval(refetch, 5 * 60_000);
-    return () => { mounted = false; supabase.removeChannel(chan); window.clearInterval(id); };
+    return () => {
+      mounted = false;
+      supabase.removeChannel(chan);
+      window.clearInterval(id);
+      window.clearTimeout(debounceId);
+    };
   }, [userId]);
 
   useReminderScheduler({ reminders, settings, userId });

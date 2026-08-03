@@ -12,14 +12,40 @@ export function nextOccurrence(r: Reminder, now = new Date()): Date | null {
     const t = new Date(r.scheduled_at);
     return t >= now ? t : null;
   }
-  // Anchor the rrule's start to the original scheduled_at
-  const rule = rrulestr(`DTSTART:${formatICS(new Date(r.scheduled_at))}\nRRULE:${r.rrule}`);
-  return rule.after(now, true);
+  try {
+    // Anchor the rrule's start to the original scheduled_at
+    const rule = rrulestr(`DTSTART:${formatICS(new Date(r.scheduled_at))}\nRRULE:${r.rrule}`);
+    const next = rule.after(toFakeUTC(now), true);
+    return next ? fromFakeUTC(next) : null;
+  } catch (e) {
+    console.error("Failed to parse RRULE for reminder:", r.id, e);
+    return null;
+  }
+}
+
+/**
+ * rrule.js evaluates rules in UTC. To make BYDAY and time-of-day follow the
+ * user's local wall clock (a "Mon 9:00" rule should mean local Monday 9:00,
+ * stable across DST), we expand rules in "fake UTC" space: local wall-clock
+ * fields are copied into UTC fields before expansion and copied back after.
+ */
+function toFakeUTC(d: Date): Date {
+  return new Date(Date.UTC(
+    d.getFullYear(), d.getMonth(), d.getDate(),
+    d.getHours(), d.getMinutes(), d.getSeconds(),
+  ));
+}
+function fromFakeUTC(d: Date): Date {
+  return new Date(
+    d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
+    d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(),
+  );
 }
 
 function formatICS(d: Date): string {
-  // RRULE wants UTC basic format like 20260510T120000Z
-  return d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  // RRULE wants UTC basic format like 20260510T120000Z; feed it the local
+  // wall-clock fields (fake UTC) so expansion happens in local time.
+  return toFakeUTC(d).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
 /** Effective lead time for a given reminder + user settings. */
@@ -55,7 +81,7 @@ export function getUpcomingOccurrences(r: Reminder, start: Date, end: Date): Dat
   }
   try {
     const rule = rrulestr(`DTSTART:${formatICS(new Date(r.scheduled_at))}\nRRULE:${r.rrule}`);
-    return rule.between(start, end, true);
+    return rule.between(toFakeUTC(start), toFakeUTC(end), true).map(fromFakeUTC);
   } catch (e) {
     console.error("Failed to parse RRULE for reminder:", r.id, e);
     return [];

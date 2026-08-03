@@ -30,6 +30,8 @@ export default async function TeamPage({ params }: { params: Promise<{ teamId: s
 
   const team = teamRes.data;
   if (!team) notFound();
+  // Non-members must not see the team page (it exposes the join code).
+  if (!membershipRes.data) notFound();
 
   const isAdmin = membershipRes.data?.role === "admin";
   const reminders = remindersRes.data ?? [];

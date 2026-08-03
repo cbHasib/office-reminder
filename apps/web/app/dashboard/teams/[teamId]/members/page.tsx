@@ -22,6 +22,8 @@ export default async function MembersPage({ params }: { params: Promise<{ teamId
   if (membersErr) console.error("members fetch err:", membersErr);
 
   const me = (members ?? []).find((m: any) => m.user?.id === user!.id);
+  // Non-members must not see this page (it exposes the join code).
+  if (!me) notFound();
   const isAdmin = me?.role === "admin";
 
   // Admins see pending requests. Fetch in TWO steps so we don't rely on

@@ -133,6 +133,18 @@ For internal-office use, unsigned is fine — your teammates do the right-click-
 - **macOS** ($99/yr Apple Developer):
   1. Add these repo **secrets**: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`.
   2. Add a repo **variable** `SIGN_MACOS = true`. The workflow won't even attempt signing until you flip this — until then, empty signing secrets cause Tauri to crash mid-build (which is what caused that "SecKeychainItemImport" error you may have seen).
+
+  **Why macOS auto-update is tied to this flag:** ad-hoc signatures (the
+  default `signingIdentity: "-"`) have no stable identity, so an auto-update
+  that replaces the app with a differently-signed bundle resets macOS
+  permission grants (notifications, login item) and can fail outright on
+  macOS 13+. The workflow therefore publishes macOS updater artifacts
+  (`.app.tar.gz` + darwin entries in `latest.json`) **only when
+  `SIGN_MACOS = true`**. Unsigned macOS releases still ship the `.dmg`, and
+  the in-app update banner sends users to the download page instead of
+  auto-installing. Windows and Linux auto-update are unaffected. Flip the
+  flag + add the secrets and the next tagged release turns signed macOS
+  auto-update on automatically — no code changes needed.
 - **Windows** ($150–300/yr Authenticode cert): set `WINDOWS_CERTIFICATE` (base64 `.pfx`) and `WINDOWS_CERTIFICATE_PASSWORD`. You'll also configure `signingIdentity` in `apps/desktop/src-tauri/tauri.conf.json` and add a Windows signing step.
 
 Full setup at [tauri.app/develop/sign-macos](https://tauri.app/develop/sign-macos/) and [tauri.app/develop/sign-windows](https://tauri.app/develop/sign-windows/).

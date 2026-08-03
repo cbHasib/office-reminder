@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { generateJoinCode } from "@office-reminder/shared";
 
 interface TeamFull {
   id: string;
@@ -414,13 +413,10 @@ function SettingsPanel({
 
   async function regen() {
     if (!confirm("Generate a new join code? The old one will stop working immediately.")) return;
-    for (let i = 0; i < 5; i++) {
-      const code = generateJoinCode();
-      const { error } = await supabase.from("teams").update({ join_code: code }).eq("id", team.id);
-      if (!error) { onChange(); return; }
-      if (error.code !== "23505") { alert(error.message); return; }
-    }
-    alert("Couldn't generate a unique code.");
+    // The code is generated server-side; clients never pick it.
+    const { error } = await supabase.rpc("regenerate_join_code", { p_team_id: team.id });
+    if (error) { alert(error.message); return; }
+    onChange();
   }
 
   async function del() {

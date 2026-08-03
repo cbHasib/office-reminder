@@ -1,16 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // Auth callback redirects land here with ?error= when a link is bad/expired.
+  const [error, setError] = useState<string | null>(searchParams.get("error"));
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -36,7 +46,12 @@ export default function LoginPage() {
                  onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
         </div>
         <div>
-          <label className="label">Password</label>
+          <div className="flex items-center justify-between">
+            <label className="label">Password</label>
+            <Link className="text-xs text-brand hover:underline" href="/forgot-password">
+              Forgot password?
+            </Link>
+          </div>
           <input className="input" type="password" required value={password}
                  onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
         </div>

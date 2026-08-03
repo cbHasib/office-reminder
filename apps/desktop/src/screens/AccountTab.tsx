@@ -93,7 +93,12 @@ export default function AccountTab({ session }: { session: Session }) {
     const { error: signinErr } = await supabase.auth.signInWithPassword({
       email: session.user.email!, password: currentPwd,
     });
-    if (signinErr) { setSavingPwd(false); setPwdMsg({ ok: false, text: "Current password is wrong." }); return; }
+    if (signinErr) {
+      setSavingPwd(false);
+      const wrongPwd = signinErr.message.toLowerCase().includes("invalid login credentials");
+      setPwdMsg({ ok: false, text: wrongPwd ? "Current password is wrong." : signinErr.message });
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password: newPwd });
     setSavingPwd(false);
     if (error) setPwdMsg({ ok: false, text: error.message });

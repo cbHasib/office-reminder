@@ -223,7 +223,10 @@ input, button, select, textarea { font: inherit; color: inherit; }
    ============================================================ */
 .overlay-root {
   position: relative;
-  width: 100vw; height: 100vh;
+  /* Fixed card height (not 100vh): on Linux/WebKitGTK the window can be
+     created taller than requested, which used to stretch the card. Any
+     extra window height now stays transparent below the card. */
+  width: 100vw; height: 110px;
   display: flex; align-items: center; gap: 14px;
   padding: 14px 16px;
   border-radius: 16px;
